@@ -1,0 +1,47 @@
+# IDE files
+/.settings
+/.project
+/.pydevproject
+/.python-version
+/.idea
+/*.sublime-project
+/*.sublime-workspace
+# Emacs
+*~
+# vim
+.*.sw*
+
+# confs
+/confs/local.ini
+/confs/config.ini
+/confs/development.ini
+/confs/test.ini
+
+development.ini~
+
+# Python compiled files.
+*.py[cod]
+
+# Python packages.
+*.egg
+*.egg-info
+dist
+build
+__pycache__
+
+# Tests.
+.cache
+.coverage
+.tox
+.hypothesis
+htmlcov
+/*.sqlite
+
+# A place for your whatever files.
+/tmp
+/logs
+
+# Your mongo dump files
+/dump
+
+/*.log

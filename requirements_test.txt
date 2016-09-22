@@ -1,0 +1,6 @@
+isort
+pep8
+pytest
+pytest-cache
+pytest-isort
+pytest-pep8
