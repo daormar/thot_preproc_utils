@@ -37,6 +37,7 @@ metadata = dict(
     entry_points={
         'console_scripts': [
             'thot_categorize = thot_utils.bin.thot_categorize:main',
+            'thot_clean_corpus_ln = thot_utils.bin.thot_clean_corpus_ln:main',
         ],
     },
     classifiers=[
