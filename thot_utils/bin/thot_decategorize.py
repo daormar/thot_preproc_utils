@@ -1,7 +1,8 @@
-# Author: Daniel Ortiz Mart\'inez
-# *- python -*
-
-# import modules
+# -*- coding:utf-8 -*-
+# Author: Daniel Ortiz Mart'inez
+"""
+Some description
+"""
 import argparse
 import io
 import itertools
@@ -33,7 +34,6 @@ argparser.add_argument(
 )
 
 
-##################################################
 def main():
     cli_args = argparser.parse_args()
 
