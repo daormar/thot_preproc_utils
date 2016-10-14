@@ -7,7 +7,7 @@ import argparse
 import io
 
 from thot_utils.libs.language_model_file_provider import LanguageModelDBProvider, LanguageModelFileProvider
-
+from thot_utils.libs.translation_model_file_provider import TranslationModelFileProvider, TranslationModelDBPrivider
 argparser = argparse.ArgumentParser(description=__doc__)
 
 argparser.add_argument(
