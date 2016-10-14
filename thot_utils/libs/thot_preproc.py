@@ -1,15 +1,13 @@
 # Author: Daniel Ortiz Mart\'inez
-# *- python -*
+# -*- coding:utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
-# import modules
-import itertools
 import math
 import re
 import sys
 from heapq import heappop, heappush
-
-# global variables
-# from lib2to3.pgen2.grammar import line
 
 _global_n = 2
 _global_lm_interp_prob = 0.5
@@ -41,52 +39,16 @@ len_patt = u"(<%s>)[ ]*(\d+)[ ]*(</%s>)" % (len_ann, len_ann)
 _annotation = re.compile(dic_patt + "|" + len_patt)
 
 
-##################################################
-class TransModel:
-    def __init__(self):
-        self.st_counts = {}
-        self.s_counts = {}
+class TransModel(object):
+    def __init__(self, model_provider):
+        self.model_provider = model_provider
 
-    #####
-    def clear(self):
-        self.st_counts.clear()
-        self.s_counts.clear()
-
-    #####
-    def increase_count(self, src_words, trg_words, c):
-        if src_words in self.st_counts:
-            if trg_words in self.st_counts[src_words]:
-                self.st_counts[src_words][trg_words] = self.st_counts[src_words][trg_words] + c
-                self.s_counts[src_words] = self.s_counts[src_words] + c
-            else:
-                self.st_counts[src_words][trg_words] = 1
-                self.s_counts[src_words] = self.s_counts[src_words] + c
-        else:
-            self.st_counts[src_words] = {}
-            self.st_counts[src_words][trg_words] = c
-            self.s_counts[src_words] = c
-
-    #####
     def obtain_opts_for_src(self, src_words):
-        if src_words in self.st_counts:
-            result = []
-            for opt in self.st_counts[src_words]:
-                result.append(opt)
-            return result
-        else:
-            return []
+        return self.model_provider.get_targets(src_words)
 
-    #####
     def obtain_srctrg_count(self, src_words, trg_words):
-        if src_words in self.st_counts:
-            if trg_words in self.st_counts[src_words]:
-                return self.st_counts[src_words][trg_words]
-            else:
-                return 0
-        else:
-            return 0
+        return self.model_provider.get_target_count(src_words, trg_words)
 
-    #####
     def obtain_trgsrc_prob(self, src_words, trg_words):
         sc = self.obtain_src_count(src_words)
         if sc == 0:
@@ -95,7 +57,6 @@ class TransModel:
             stc = self.obtain_srctrg_count(src_words, trg_words)
             return float(stc) / float(sc)
 
-    #####
     def obtain_trgsrc_prob_smoothed(self, src_words, trg_words):
         sc = self.obtain_src_count(src_words)
         if sc == 0:
@@ -104,197 +65,9 @@ class TransModel:
             stc = self.obtain_srctrg_count(src_words, trg_words)
             return (1 - _global_tm_smooth_prob) * (float(stc) / float(sc))
 
-    #####
     def obtain_src_count(self, src_words):
-        if src_words in self.s_counts:
-            return self.s_counts[src_words]
-        else:
-            return 0
+        return self.model_provider.get_source_count(src_words)
 
-    #####
-    def load(self, fd):
-        # Read file line by line
-        for line in fd:
-            line = line.strip("\n")
-            line_array = line.split()
-
-            # Iterate over line elements
-            src_words = ""
-            trg_words = ""
-            src = True
-            for i in range(len(line_array) - 1):
-                if src == True:
-                    if line_array[i] == "|||":
-                        src = False
-                    else:
-                        if i == 0:
-                            src_words = line_array[i]
-                        else:
-                            src_words = src_words + " " + line_array[i]
-                else:
-                    if line_array[i - 1] == "|||":
-                        trg_words = line_array[i]
-                    else:
-                        trg_words = trg_words + " " + line_array[i]
-
-            c = int(line_array[len(line_array) - 1])
-
-            # Increase count
-            self.increase_count(src_words, trg_words, c)
-
-    #####
-    def print_model_to_file(self, file):
-        for k1 in self.st_counts:
-            for k2 in self.st_counts[k1]:
-                file.write(u'%s ||| %s %d\n' % (k1, k2, self.st_counts[k1][k2]))
-
-    #####
-    def print_model(self):
-        print "*** st_counts:"
-        for k1 in self.st_counts:
-            for k2 in self.st_counts[k1]:
-                print k1.encode("utf-8"), "|||", k2.encode("utf-8"), self.st_counts[k1][k2]
-
-        print "*** s_counts:"
-        for k in self.s_counts:
-            print k.encode("utf-8"), self.s_counts[k]
-
-    #####
-    def train_sent_tok(self, raw_word_array, tok_array, verbose):
-        if len(tok_array) > 0:
-            # train translation model for sentence
-            i = 0
-            j = 0
-            prev_j = 0
-            error = False
-
-            # Obtain transformed raw word array
-            while i < len(raw_word_array):
-                end = False
-                str = ""
-
-                # process current raw word
-                while end == False:
-                    if raw_word_array[i] == str:
-                        end = True
-                    else:
-                        if j >= len(tok_array):
-                            error = True
-                            end = True
-                        else:
-                            str = str + tok_array[j]
-                            j = j + 1
-
-                # Check that no errors were found while processing current raw word
-                if error == True:
-                    return False
-
-                # update the translation model
-                tm_entry_ok = True
-                tok_words = transform_word(tok_array[prev_j])
-                raw_word = transform_word(tok_array[prev_j])
-                for k in range(prev_j + 1, j):
-                    tok_words = tok_words + " " + transform_word(tok_array[k])
-                    raw_word = raw_word + transform_word(tok_array[k])
-                    if (is_categ(transform_word(tok_array[k - 1])) and
-                            is_categ(transform_word(tok_array[k]))):
-                        tm_entry_ok = False
-
-                raw_words = raw_word
-
-                if tm_entry_ok == True:
-                    self.increase_count(tok_words, raw_words, 1)
-
-                # update variables
-                i = i + 1
-                prev_j = j
-
-            # The sentence was successfully processed
-            return True
-
-    #####
-    def train_tok_tm(self, file, verbose):
-
-        # Initialize variables
-        nsent = 1
-
-        # read raw file line by line
-        for line in file:
-            line = line.strip("\n")
-            raw_word_array = line.split()
-            tok_array = tokenize(line)
-
-            if verbose == True:
-                print >> sys.stderr, "* Training tm for sentence pair:"
-                print >> sys.stderr, " raw:", line.encode("utf-8")
-                print >> sys.stderr, " tok:",
-                for i in range(len(tok_array)):
-                    print >> sys.stderr, tok_array[i].encode("utf-8"),
-                print >> sys.stderr, ""
-
-            # Process sentence
-            retval = self.train_sent_tok(raw_word_array, tok_array, verbose)
-            if retval == False:
-                print >> sys.stderr, "Warning: something went wrong while training the translation model for " \
-                                     "sentence", nsent
-            nsent += 1
-
-    #####
-    def train_tok_tm_par_files(self, rfile, tfile, verbose):
-
-        # Initialize variables
-        nsent = 1
-
-        # Read parallel files line by line
-        for rline, tline in itertools.izip(rfile, tfile):
-            rline = rline.strip("\n")
-            raw_word_array = rline.split()
-            tline = tline.strip("\n")
-            tok_array = tline.split()
-
-            if verbose == True:
-                print >> sys.stderr, "* Training tm for sentence pair:"
-                print >> sys.stderr, " raw:", line.encode("utf-8")
-                print >> sys.stderr, " tok:",
-                for i in range(len(tok_array)):
-                    print >> sys.stderr, tok_array[i].encode("utf-8"),
-                print >> sys.stderr, ""
-
-            # Process sentence
-            retval = self.train_sent_tok(raw_word_array, tok_array, verbose)
-            if retval == False:
-                print >> sys.stderr, "Warning: something went wrong while training the translation model for " \
-                                     "sentence", nsent
-            nsent += 1
-
-    #####
-    def train_sent_rec(self, raw_word_array, lc_word_array, verbose):
-        for i in range(len(raw_word_array)):
-            raw_word = raw_word_array[i]
-            lc_word = lc_word_array[i]
-            self.increase_count(lc_word, raw_word, 1)
-
-    #####
-    def train_rec_tm(self, file, verbose):
-
-        # read raw file line by line
-        for line in file:
-            line = line.strip("\n")
-            raw_word_array = line.split()
-            lc_word_array = lowercase(line).split()
-
-            if verbose == True:
-                print >> sys.stderr, "* Training tm for sentence pair:"
-                print >> sys.stderr, " raw:", line.encode("utf-8")
-                print >> sys.stderr, " lc:",
-                for i in range(len(lc_word_array)):
-                    print >> sys.stderr, lc_word_array[i].encode("utf-8"),
-                print >> sys.stderr, ""
-
-            # Process sentence
-            self.train_sent_rec(raw_word_array, lc_word_array, verbose)
-
-    #####
     def get_mon_hyp_state(self, hyp):
         if len(hyp.data.coverage) == 0:
             return 0
@@ -302,28 +75,12 @@ class TransModel:
             return hyp.data.coverage[len(hyp.data.coverage) - 1]
 
 
-##################################################
 class LangModel:
-    def __init__(self):
-        self.n = _global_n
-        self.interp_prob = _global_lm_interp_prob
-        self.ng_counts = {}
+    def __init__(self, provider, ngrams_length, interp_prob=None):
+        self.provider = provider
+        self.ngrams_length = ngrams_length
+        self.set_interp_prob(interp_prob or _global_lm_interp_prob)
 
-    #####
-    def clear(self):
-        self.n = _global_n
-        self.interp_prob = _global_lm_interp_prob
-        self.ng_counts.clear()
-
-    #####
-    def set_n(self, n):
-        self.n = n
-
-    #####
-    def get_n(self):
-        return self.n
-
-    #####
     def set_interp_prob(self, interp_prob):
         if interp_prob > 0.99:
             self.interp_prob = 0.99
@@ -332,25 +89,9 @@ class LangModel:
         else:
             self.interp_prob = interp_prob
 
-    #####
-    def get_interp_prob(self):
-        return self.interp_prob
-
-    #####
-    def increase_ng_count(self, ngram, c):
-        if ngram in self.ng_counts:
-            self.ng_counts[ngram] = self.ng_counts[ngram] + c
-        else:
-            self.ng_counts[ngram] = c
-
-    #####
     def obtain_ng_count(self, ngram):
-        if ngram in self.ng_counts:
-            return self.ng_counts[ngram]
-        else:
-            return 0
+        return self.provider.get_count(ngram)
 
-    #####
     def obtain_trgsrc_prob(self, ngram):
         if ngram == "":
             return 1.0 / self.obtain_ng_count("")
@@ -360,9 +101,8 @@ class LangModel:
                 return 0
             else:
                 ngc = self.obtain_ng_count(ngram)
-                return float(ngc) / float(hc)
+                return ngc / hc
 
-    #####
     def obtain_trgsrc_interp_prob(self, ngram):
         ng_array = ngram.split()
         if len(ng_array) == 0:
@@ -373,7 +113,6 @@ class LangModel:
                                                                        self.obtain_trgsrc_interp_prob(
                                                                            self.remove_oldest_word(ngram))
 
-    #####
     def remove_newest_word(self, ngram):
         ng_array = ngram.split()
         if len(ng_array) <= 1:
@@ -384,7 +123,6 @@ class LangModel:
                 result = result + " " + ng_array[i]
             return result
 
-    #####
     def remove_oldest_word(self, ngram):
         ng_array = ngram.split()
         if len(ng_array) <= 1:
@@ -395,249 +133,10 @@ class LangModel:
                 result = result + " " + ng_array[i]
             return result
 
-    #####
-    def train_word_array(self, word_array):
-        # obtain counts for 0-grams
-        self.increase_ng_count("", len(word_array))
-
-        # create auxiliary array with special words
-        word_array_aux = []
-        word_array_aux.append(_global_bos_str)
-        for i in range(len(word_array)):
-            word_array_aux.append(word_array[i])
-        word_array_aux.append(_global_eos_str)
-
-        # obtain counts for higher order n-grams
-        for i in range(1, self.n + 1):
-            for j in range(len(word_array_aux)):
-                # Obtain n-gram
-                ngram_array = word_array_aux[j:j + i]
-                # Convert array to string
-                ngram = ""
-                for k in range(len(ngram_array)):
-                    if k == 0:
-                        ngram = ngram_array[k]
-                    else:
-                        ngram = ngram + " " + ngram_array[k]
-
-                # increase counts of ngram string
-                if i != 1 or j != 0:
-                    self.increase_ng_count(ngram, 1)
-
-    #####
-    def load(self, file):
-
-        # Init variables
-        max_n = 0
-
-        # Read file line by line
-        for line in file:
-            line = line.strip("\n")
-            line_array = line.split()
-
-            # Update max_n
-            if max_n < len(line_array) - 1:
-                max_n = len(line_array) - 1
-
-            # Iterate over line elements
-            ng_words = ""
-            for i in range(len(line_array) - 1):
-                if i == 0:
-                    ng_words = line_array[i]
-                else:
-                    ng_words = ng_words + " " + line_array[i]
-
-            c = int(line_array[len(line_array) - 1])
-
-            # Increase count
-            self.increase_ng_count(ng_words, c)
-
-            # Increase zero-gram count if necessary
-            if len(line_array) == 2:
-                self.increase_ng_count("", c)
-
-        # Set n-gram order
-        self.n = max_n
-        print >> sys.stderr, "n-gram order:", self.n
-
-    #####
-    def print_model_to_file(self, file):
-        for k in self.ng_counts:
-            if k != "":
-                file.write(u'%s %d\n' % (k, self.ng_counts[k]))
-
-    #####
-    def print_model(self):
-        print "*** n value:", self.n
-        print "*** ng_counts:"
-        for k in self.ng_counts:
-            print k.encode("utf-8"), self.ng_counts[k]
-
-    #####
     def lm_preproc(self, trans_raw_word_array, lmvoc):
         # Do not alter words
         return trans_raw_word_array
 
-    #####
-    def lm_preproc_unk_word(self, trans_raw_word_array, lmvoc):
-        # Introduce unknown word if necessary
-        preproc_trans_raw_word_array = []
-        for i in range(len(trans_raw_word_array)):
-            if trans_raw_word_array[i] in lmvoc:
-                preproc_trans_raw_word_array.append(trans_raw_word_array[i])
-                lmvoc[trans_raw_word_array[i]] = lmvoc[trans_raw_word_array[i]] + 1
-            else:
-                preproc_trans_raw_word_array.append(_global_unk_word_str)
-                lmvoc[trans_raw_word_array[i]] = 1
-
-        return preproc_trans_raw_word_array
-
-    #####
-    def train_sent_tok(self, raw_word_array, tok_array, lmvoc, verbose):
-        if len(tok_array) > 0:
-            # train translation model for sentence
-            i = 0
-            j = 0
-            prev_j = 0
-            error = False
-
-            # Obtain transformed raw word array
-            trans_raw_word_array = []
-            while i < len(raw_word_array):
-                end = False
-                str = ""
-
-                # process current raw word
-                while end == False:
-                    if raw_word_array[i] == str:
-                        end = True
-                    else:
-                        if j >= len(tok_array):
-                            error = True
-                            end = True
-                        else:
-                            str = str + tok_array[j]
-                            j = j + 1
-
-                # Check that no errors were found while processing current raw word
-                if error == True:
-                    return False
-
-                # update the language model
-                tm_entry_ok = True
-                tok_words = transform_word(tok_array[prev_j])
-                raw_word = transform_word(tok_array[prev_j])
-                for k in range(prev_j + 1, j):
-                    tok_words = tok_words + " " + transform_word(tok_array[k])
-                    raw_word = raw_word + transform_word(tok_array[k])
-                    if (is_categ(transform_word(tok_array[k - 1])) and
-                            is_categ(transform_word(tok_array[k]))):
-                        tm_entry_ok = False
-
-                trans_raw_word_array.append(raw_word)
-
-                # update variables
-                i = i + 1
-                prev_j = j
-
-            # preprocess sentence (introduce the unknown word token)
-            preproc_trans_raw_word_array = self.lm_preproc(trans_raw_word_array, lmvoc)
-
-            if verbose == True:
-                print >> sys.stderr, "* Training lm for sentence:",
-                for i in range(len(preproc_trans_raw_word_array)):
-                    print >> sys.stderr, preproc_trans_raw_word_array[i].encode("utf-8"),
-                print >> sys.stderr, ""
-
-            # train language model using the transformed raw word
-            # sentence
-            self.train_word_array(preproc_trans_raw_word_array)
-
-            # The sentence was successfully processed
-            return True
-
-    #####
-    def train_tok_lm(self, file, nval, verbose):
-
-        # initialize variables
-        lmvoc = {}
-        self.set_n(nval)
-        nsent = 1
-
-        # read raw file line by line
-        for line in file:
-            line = line.strip("\n")
-            raw_word_array = line.split()
-            tok_array = tokenize(line)
-
-            if verbose == True:
-                print >> sys.stderr, "* Training lm for sentence pair:"
-                print >> sys.stderr, " raw:", line.encode("utf-8")
-                print >> sys.stderr, " tok:",
-                for i in range(len(tok_array)):
-                    print >> sys.stderr, tok_array[i].encode("utf-8"),
-                print >> sys.stderr, ""
-
-            # Process sentence
-            retval = self.train_sent_tok(raw_word_array, tok_array, lmvoc, verbose)
-            if retval == False:
-                print >> sys.stderr, "Warning: something went wrong while training the language model for sentence", \
-                    nsent
-            nsent += 1
-
-    #####
-    def train_tok_lm_par_files(self, rfile, tfile, nval, verbose):
-
-        # initialize variables
-        lmvoc = {}
-        self.set_n(nval)
-        nsent = 1
-
-        # Read parallel files line by line
-        for rline, tline in itertools.izip(rfile, tfile):
-            rline = rline.strip("\n")
-            raw_word_array = rline.split()
-            tline = tline.strip("\n")
-            tok_array = tline.split()
-
-            if verbose == True:
-                print >> sys.stderr, "* Training lm for sentence pair:"
-                print >> sys.stderr, " raw:", line.encode("utf-8")
-                print >> sys.stderr, " tok:",
-                for i in range(len(tok_array)):
-                    print >> sys.stderr, tok_array[i].encode("utf-8"),
-                print >> sys.stderr, ""
-
-            # Process sentence
-            retval = self.train_sent_tok(raw_word_array, tok_array, lmvoc, verbose)
-            if retval == False:
-                print >> sys.stderr, "Warning: something went wrong while training the language model for sentence", \
-                    nsent
-            nsent += 1
-
-    #####
-    def train(self, file, nval, verbose):
-
-        # initialize variables
-        lmvoc = {}
-        self.set_n(nval)
-
-        # read raw file line by line
-        for line in file:
-            line = line.strip("\n")
-            word_array = line.split()
-
-            # Process sentence
-            if verbose == True:
-                print >> sys.stderr, "* Training lm for sentence:",
-                for i in range(len(word_array)):
-                    print >> sys.stderr, word_array[i].encode("utf-8"),
-                print >> sys.stderr, ""
-
-            # train language model for current sentence
-            self.train_word_array(word_array)
-
-    #####
     def get_lm_state(self, words):
         # Obtain array of previous words including BOS symbol
         words_array_aux = words.split()
@@ -649,7 +148,7 @@ class LangModel:
         # Obtain history from array
         len_hwa = len(words_array)
         hist = ""
-        for i in range(self.get_n() - 1):
+        for i in range(self.ngrams_length - 1):
             if i < len(words_array):
                 word = words_array[len_hwa - 1 - i]
                 if hist == "":
@@ -658,12 +157,10 @@ class LangModel:
                     hist = word + " " + hist
         return hist
 
-    #####
     def get_hyp_state(self, hyp):
         return self.get_lm_state(hyp.data.words)
 
 
-##################################################
 class BfsHypdata:
     def __init__(self):
         self.coverage = []
@@ -677,7 +174,6 @@ class BfsHypdata:
         return result
 
 
-##################################################
 class Hypothesis:
     def __init__(self):
         self.score = 0
@@ -687,7 +183,6 @@ class Hypothesis:
         return cmp(other.score, self.score)
 
 
-##################################################
 class PriorityQueue:
     def __init__(self):
         self.heap = []
@@ -702,7 +197,6 @@ class PriorityQueue:
         return heappop(self.heap)
 
 
-##################################################
 class StateInfoDict:
     def __init__(self):
         self.recomb_map = {}
@@ -711,7 +205,6 @@ class StateInfoDict:
         return len(self.recomb_map) == 0
 
     def insert(self, state_info, score):
-
         # Update recombination info
         if state_info in self.recomb_map:
             if score > self.recomb_map[state_info]:
@@ -733,7 +226,6 @@ class StateInfoDict:
             return False
 
 
-##################################################
 class StateInfo:
     def __init__(self, tm_state, lm_state):
         self.tm_state = tm_state
@@ -746,21 +238,19 @@ class StateInfo:
         return (self.tm_state, self.lm_state) == (other.tm_state, other.lm_state)
 
 
-##################################################
 def obtain_state_info(tmodel, lmodel, hyp):
     return StateInfo(tmodel.get_mon_hyp_state(hyp), lmodel.get_hyp_state(hyp))
 
 
-##################################################
 def transform_word(word):
-    if word.isdigit() == True:
+    if word.isdigit():
         if len(word) > 1:
             return _global_number_str
         else:
             return _global_digit_str
-    elif is_number(word) == True:
+    elif is_number(word):
         return _global_number_str
-    elif is_alnum(word) == True and bool(_global_digits.search(word)) == True:
+    elif is_alnum(word) and bool(_global_digits.search(word)):
         return _global_alfanum_str
     elif len(word) > 5:
         return _global_common_word_str
@@ -768,25 +258,22 @@ def transform_word(word):
         return word
 
 
-##################################################
 def is_number(s):
     try:
         float(s)
         return True
     except ValueError:
-        return False
+        pass
+    return False
 
 
-##################################################
 def is_alnum(s):
     res = _global_alnum.match(s)
-    if res == None:
+    if res is None:
         return False
-    else:
-        return True
+    return True
 
 
-##################################################
 def categorize(sentence):
     skeleton = annotated_string_to_xml_skeleton(sentence)
     # Categorize words
@@ -812,7 +299,6 @@ def categorize(sentence):
     return u' '.join(categ_word_array)
 
 
-##################################################
 def categorize_word(word):
     if word.isdigit() == True:
         if len(word) > 1:
@@ -827,7 +313,6 @@ def categorize_word(word):
         return word
 
 
-##################################################
 def is_categ(word):
     if word in _global_categ_set:
         return True
@@ -835,7 +320,6 @@ def is_categ(word):
         return False
 
 
-##################################################
 def extract_alig_info(hyp_word_array):
     # Initialize output variables
     srcsegms = []
@@ -882,7 +366,6 @@ def extract_alig_info(hyp_word_array):
         return [], []
 
 
-##################################################
 def extract_categ_words_of_segm(word_array, left, right):
     # Initialize variables
     categ_words = []
@@ -896,7 +379,6 @@ def extract_categ_words_of_segm(word_array, left, right):
     return categ_words
 
 
-##################################################
 def decategorize(sline, tline, iline):
     src_word_array = sline.split()
     trg_word_array = tline.split()
@@ -920,7 +402,6 @@ def decategorize(sline, tline, iline):
     return output
 
 
-##################################################
 def decategorize_word(trgpos, src_word_array, trg_word_array, srcsegms, trgcuts):
     # Check if there is alignment information available
     if len(srcsegms) == 0 or len(trgcuts) == 0:
@@ -976,7 +457,6 @@ def decategorize_word(trgpos, src_word_array, trg_word_array, srcsegms, trgcuts)
             return trg_word_array[trgpos]
 
 
-##################################################
 class Decoder:
     def __init__(self, tmodel, lmodel, weights):
         # Initialize data members
@@ -999,7 +479,6 @@ class Decoder:
         self.wpenw_idx = 2
         self.lmw_idx = 3
 
-    #####
     def opt_contains_src_words(self, src_words, opt):
 
         st = ""
@@ -1012,7 +491,6 @@ class Decoder:
         else:
             return False
 
-    #####
     def tm_ext_lp(self, new_src_words, opt, verbose):
 
         lp = math.log(self.tmodel.obtain_trgsrc_prob_smoothed(new_src_words, opt))
@@ -1022,7 +500,6 @@ class Decoder:
 
         return lp
 
-    #####
     def pp_ext_lp(self, verbose):
 
         lp = math.log(1.0 / math.e)
@@ -1032,7 +509,6 @@ class Decoder:
 
         return lp
 
-    #####
     def wp_ext_lp(self, words, verbose):
 
         nw = len(words.split())
@@ -1044,12 +520,10 @@ class Decoder:
 
         return lp
 
-    #####
     def lm_transform_word(self, word):
         # Do not alter word
         return word
 
-    #####
     def lm_transform_word_unk(self, word):
         # Introduce unknown word
         if self.lmodel.obtain_ng_count(word) == 0:
@@ -1057,9 +531,7 @@ class Decoder:
         else:
             return word
 
-    #####
     def lm_ext_lp(self, hyp_words, opt, verbose):
-
         ## Obtain lm history
         rawhist = self.lmodel.get_lm_state(hyp_words)
         rawhist_array = rawhist.split()
@@ -1089,7 +561,6 @@ class Decoder:
 
         return lp
 
-    #####
     def expand(self, tok_array, hyp, new_hyp_cov, verbose):
         # Init result
         exp_list = []
@@ -1128,8 +599,7 @@ class Decoder:
             bfsd_newhyp = BfsHypdata()
 
             # Obtain coverage for new hyp
-            for k in range(len(hyp.data.coverage)):
-                bfsd_newhyp.coverage.append(hyp.data.coverage[k])
+            bfsd_newhyp.coverage = hyp.data.coverage[:]
             bfsd_newhyp.coverage.append(new_hyp_cov)
 
             # Obtain list of words for new hyp
@@ -1183,7 +653,6 @@ class Decoder:
         # Return result
         return exp_list
 
-    #####
     def last_cov_pos(self, coverage):
 
         if len(coverage) == 0:
@@ -1191,12 +660,10 @@ class Decoder:
         else:
             return coverage[len(coverage) - 1]
 
-    #####
     def hyp_is_complete(self, hyp, src_word_array):
 
         return self.cov_is_complete(hyp.data.coverage, src_word_array)
 
-    #####
     def cov_is_complete(self, coverage, src_word_array):
 
         if self.last_cov_pos(coverage) == len(src_word_array) - 1:
@@ -1204,7 +671,6 @@ class Decoder:
         else:
             return False
 
-    #####
     def obtain_nblist(self, src_word_array, nblsize, verbose):
         # Insert initial hypothesis in stack
         priority_queue = PriorityQueue()
@@ -1228,7 +694,6 @@ class Decoder:
         # return result
         return nblist
 
-    #####
     def obtain_detok_sent(self, tok_array, best_hyp):
 
         # Check if tok_array is not empty
@@ -1259,7 +724,6 @@ class Decoder:
         else:
             return ""
 
-    #####
     def get_hypothesis_to_expand(self, priority_queue, stdict):
 
         while True:
@@ -1271,7 +735,6 @@ class Decoder:
                 if stdict.hyp_recombined(sti, hyp.score) == False:
                     return False, hyp
 
-    #####
     def best_first_search(self, src_word_array, priority_queue, stdict, verbose):
         # Initialize variables
         end = False
@@ -1333,7 +796,6 @@ class Decoder:
                                          "hypothesis"
                 return Hypothesis()
 
-    #####
     def detokenize(self, file, verbose):
         # read raw file line by line
         lineno = 0
@@ -1367,7 +829,6 @@ class Decoder:
             else:
                 print ""
 
-    #####
     def recase(self, file, verbose):
         # read raw file line by line
         lineno = 0
@@ -1396,7 +857,6 @@ class Decoder:
                 print ""
 
 
-##################################################
 class Tokenizer:
     def __init__(self):
         self.RX = re.compile(r'(\w+)|([^\w\s]+)', re.U)
@@ -1406,10 +866,9 @@ class Tokenizer:
         return filter(None, [s.strip() for s in aux])
 
 
-##################################################
 def tokenize(string):
     tokenizer = Tokenizer()
-    skel = annotated_string_to_xml_skeleton(string)
+    skel = list(annotated_string_to_xml_skeleton(string))
     for idx, (is_tag, txt) in enumerate(skel):
         if is_tag:
             skel[idx][1] = [skel[idx][1]]
@@ -1418,7 +877,6 @@ def tokenize(string):
     return xml_skeleton_to_tokens(skel)
 
 
-##################################################
 def xml_skeleton_to_tokens(skeleton):
     """
     Joins back the elements in a skeleton to return a list of tokens
@@ -1429,19 +887,17 @@ def xml_skeleton_to_tokens(skeleton):
     return annotated
 
 
-##################################################
 def lowercase(string):
     # return str.lower()
-    skel = annotated_string_to_xml_skeleton(string)
-    for idx, (is_tag, txt) in enumerate(skel):
-        if is_tag:
-            skel[idx][1] = txt.strip()
-        else:
-            skel[idx][1] = txt.lower().strip()
+    skel = []
+    for is_tag, txt in annotated_string_to_xml_skeleton(string):
+        skel.append(
+            (is_tag, txt.strip() if is_tag else txt.lower().strip())
+        )
+
     return xml_skeleton_to_string(skel)
 
 
-##################################################
 def xml_skeleton_to_string(skeleton):
     """
     Joins back the elements in a skeleton to return an annotated string
@@ -1449,45 +905,43 @@ def xml_skeleton_to_string(skeleton):
     return u" ".join(txt for _, txt in skeleton)
 
 
-##################################################
 def annotated_string_to_xml_skeleton(annotated):
     """
     Parses a string looking for XML annotations
     returns a vector where each element is a pair (is_tag, text)
     """
     offset = 0
-    skeleton = list()
     for m in _annotation.finditer(annotated):
         if offset < m.start():
-            skeleton.append([False, annotated[offset:m.start()]])
+            yield [False, annotated[offset:m.start()]]
         offset = m.end()
         g = m.groups()
         dic_g = filter(None, g[0:8])
         len_g = filter(None, g[8:11])
-        ann = None
         if dic_g:
-            ann = [[True, dic_g[0]],
-                   [True, dic_g[1]], [False, dic_g[2]], [True, dic_g[3]],
-                   [True, dic_g[4]], [False, dic_g[5]], [True, dic_g[6]],
-                   [True, dic_g[7]]]
+            yield [True, dic_g[0]]
+            yield [True, dic_g[1]]
+            yield [False, dic_g[2]]
+            yield [True, dic_g[3]]
+            yield [True, dic_g[4]]
+            yield [False, dic_g[5]]
+            yield [True, dic_g[6]]
+            yield [True, dic_g[7]]
         elif len_g:
-            ann = [[True, len_g[0]], [False, len_g[1]], [True, len_g[2]]]
+            yield [True, dic_g[0]]
+            yield [False, dic_g[1]]
+            yield [True, dic_g[2]]
         else:
             sys.stderr.write('WARNING:\n - s: %s\n - g: %s\n' % (annotated, g))
-        if ann is not None:
-            skeleton.extend(ann)
     if offset < len(annotated):
-        skeleton.append([False, annotated[offset:]])
-    return skeleton
+        yield [False, annotated[offset:]]
 
 
-##################################################
 def remove_xml_annotations(annotated):
-    xml_tags = set(['<' + src_ann + '>', '</' + len_ann + '>', '</' + grp_ann + '>'])
-    skeleton = annotated_string_to_xml_skeleton(annotated)
-    tokens = list()
-    for i in range(len(skeleton)):
-        is_tag, text = skeleton[i]
+    xml_tags = {'<' + src_ann + '>', '</' + len_ann + '>', '</' + grp_ann + '>'}
+    skeleton = list(annotated_string_to_xml_skeleton(annotated))
+    tokens = []
+    for i, is_tag, text in enumerate(skeleton):
         token = text.strip()
         if not is_tag and token:
             if i == 0:
@@ -1498,5 +952,3 @@ def remove_xml_annotations(annotated):
                                               ant_text.strip() in xml_tags):
                     tokens.append(token)
     return u' '.join(tokens)
-
-##################################################

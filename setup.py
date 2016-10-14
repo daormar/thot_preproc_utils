@@ -40,6 +40,9 @@ metadata = dict(
             'thot_decategorize = thot_utils.bin.thot_decategorize:main',
             'thot_clean_corpus_ln = thot_utils.bin.thot_clean_corpus_ln:main',
             'thot_lowercase = thot_utils.bin.thot_lowercase:main',
+            'thot_recase = thot_utils.bin.thot_recase:main',
+            'thot_recase_precalculate = thot_utils.bin.thot_recase_precalculate:main',
+            'thot_tokenize = thot_utils.bin.thot_tokenize:main',
         ],
     },
     classifiers=[
