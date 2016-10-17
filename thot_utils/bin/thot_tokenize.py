@@ -1,7 +1,8 @@
-# Author: Daniel Ortiz Mart\'inez
-# *- python -*
-
-# import modules
+# -*- coding:utf-8 -*-
+# Author: Daniel Ortiz Mart'inez
+"""
+Some description
+"""
 import argparse
 import codecs
 import io
@@ -28,7 +29,6 @@ mutex_group.add_argument(
 )
 
 
-##################################################
 def main():
     cli_args = argparser.parse_args()
     if cli_args.stdin:

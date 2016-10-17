@@ -9,34 +9,9 @@ import re
 import sys
 from heapq import heappop, heappush
 
-_global_n = 2
-_global_lm_interp_prob = 0.5
-_global_common_word_str = "<common_word>"
-_global_number_str = "<number>"
-_global_digit_str = "<digit>"
-_global_alfanum_str = "<alfanum>"
-_global_unk_word_str = "<unk>"
-_global_eos_str = "<eos>"
-_global_bos_str = "<bos>"
-_global_categ_set = frozenset([_global_common_word_str, _global_number_str, _global_digit_str, _global_alfanum_str])
-_global_digits = re.compile('\d')
-_global_alnum = re.compile('[a-zA-Z0-9]+')
-_global_a_par = 7
-_global_maxniters = 100000
-_global_tm_smooth_prob = 0.000001
-
-# xml annotation variables
-grp_ann = "phr_pair_annot"
-src_ann = "src_segm"
-trg_ann = "trg_segm"
-dic_patt = u"(<%s>)[ ]*(<%s>)(.+?)(<\/%s>)[ ]*(<%s>)(.+?)(<\/%s>)[ ]*(<\/%s>)" % (grp_ann,
-                                                                                  src_ann, src_ann,
-                                                                                  trg_ann, trg_ann,
-                                                                                  grp_ann)
-len_ann = "length_limit"
-len_patt = u"(<%s>)[ ]*(\d+)[ ]*(</%s>)" % (len_ann, len_ann)
-
-_annotation = re.compile(dic_patt + "|" + len_patt)
+from thot_utils.libs import config
+from thot_utils.libs.utils import is_alnum, transform_word, is_categ
+from thot_utils.libs.utils import is_number
 
 
 class TransModel(object):
@@ -60,10 +35,10 @@ class TransModel(object):
     def obtain_trgsrc_prob_smoothed(self, src_words, trg_words):
         sc = self.obtain_src_count(src_words)
         if sc == 0:
-            return _global_tm_smooth_prob
+            return config.tm_smooth_prob
         else:
             stc = self.obtain_srctrg_count(src_words, trg_words)
-            return (1 - _global_tm_smooth_prob) * (float(stc) / float(sc))
+            return (1 - config.tm_smooth_prob) * (float(stc) / float(sc))
 
     def obtain_src_count(self, src_words):
         return self.model_provider.get_source_count(src_words)
@@ -79,7 +54,7 @@ class LangModel:
     def __init__(self, provider, ngrams_length, interp_prob=None):
         self.provider = provider
         self.ngrams_length = ngrams_length
-        self.set_interp_prob(interp_prob or _global_lm_interp_prob)
+        self.set_interp_prob(interp_prob or config.lm_interp_prob)
 
     def set_interp_prob(self, interp_prob):
         if interp_prob > 0.99:
@@ -141,7 +116,7 @@ class LangModel:
         # Obtain array of previous words including BOS symbol
         words_array_aux = words.split()
         words_array = []
-        words_array.append(_global_bos_str)
+        words_array.append(config.bos_str)
         for i in range(len(words_array_aux)):
             words_array.append(words_array_aux[i])
 
@@ -242,38 +217,6 @@ def obtain_state_info(tmodel, lmodel, hyp):
     return StateInfo(tmodel.get_mon_hyp_state(hyp), lmodel.get_hyp_state(hyp))
 
 
-def transform_word(word):
-    if word.isdigit():
-        if len(word) > 1:
-            return _global_number_str
-        else:
-            return _global_digit_str
-    elif is_number(word):
-        return _global_number_str
-    elif is_alnum(word) and bool(_global_digits.search(word)):
-        return _global_alfanum_str
-    elif len(word) > 5:
-        return _global_common_word_str
-    else:
-        return word
-
-
-def is_number(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        pass
-    return False
-
-
-def is_alnum(s):
-    res = _global_alnum.match(s)
-    if res is None:
-        return False
-    return True
-
-
 def categorize(sentence):
     skeleton = annotated_string_to_xml_skeleton(sentence)
     # Categorize words
@@ -283,9 +226,9 @@ def categorize(sentence):
         if is_tag:
             # Treat xml tag
             categ_word_array.append(word)
-            if word == '<' + len_ann + '>':
+            if word == '<' + config.len_ann + '>':
                 len_ann_active = True
-            elif word == '</' + len_ann + '>':
+            elif word == '</' + config.len_ann + '>':
                 len_ann_active = False
         else:
             # Categorize group of words
@@ -302,22 +245,15 @@ def categorize(sentence):
 def categorize_word(word):
     if word.isdigit() == True:
         if len(word) > 1:
-            return _global_number_str
+            return config.number_str
         else:
-            return _global_digit_str
+            return config.digit_str
     elif is_number(word) == True:
-        return _global_number_str
-    elif is_alnum(word) == True and bool(_global_digits.search(word)) == True:
-        return _global_alfanum_str
+        return config.number_str
+    elif is_alnum(word) == True and bool(config.digits.search(word)) == True:
+        return config.alfanum_str
     else:
         return word
-
-
-def is_categ(word):
-    if word in _global_categ_set:
-        return True
-    else:
-        return False
 
 
 def extract_alig_info(hyp_word_array):
@@ -527,7 +463,7 @@ class Decoder:
     def lm_transform_word_unk(self, word):
         # Introduce unknown word
         if self.lmodel.obtain_ng_count(word) == 0:
-            return _global_unk_word_str
+            return config.unk_word_str
         else:
             return word
 
@@ -631,7 +567,7 @@ class Decoder:
             # complete
             w_lm_end_lp = 0
             if self.cov_is_complete(bfsd_newhyp.coverage, tok_array):
-                lm_end_lp = self.lm_ext_lp(bfsd_newhyp.words, _global_eos_str, verbose)
+                lm_end_lp = self.lm_ext_lp(bfsd_newhyp.words, config.eos_str, verbose)
                 w_lm_end_lp = self.weights[self.lmw_idx] * lm_end_lp
 
             if verbose == True:
@@ -759,7 +695,7 @@ class Decoder:
                     end = True
                 else:
                     # Expand hypothesis
-                    for l in range(0, _global_a_par):
+                    for l in range(0, config.a_par):
                         new_hyp_cov = self.last_cov_pos(hyp.data.coverage) + 1 + l
                         if new_hyp_cov < len(src_word_array):
                             # Obtain expansion
@@ -774,11 +710,11 @@ class Decoder:
 
             niter = niter + 1
 
-            if niter > _global_maxniters:
+            if niter > config.maxniters:
                 end = True
 
         # Return result
-        if niter > _global_maxniters:
+        if niter > config.maxniters:
             if verbose == True:
                 print  >> sys.stderr, "Warning: maximum number of iterations exceeded"
             return Hypothesis()
@@ -796,10 +732,10 @@ class Decoder:
                                          "hypothesis"
                 return Hypothesis()
 
-    def detokenize(self, file, verbose):
+    def detokenize(self, lines, verbose=False):
         # read raw file line by line
         lineno = 0
-        for line in file:
+        for line in lines:
             # Obtain array with tokenized words
             lineno = lineno + 1
             line = line.strip("\n")
@@ -911,7 +847,7 @@ def annotated_string_to_xml_skeleton(annotated):
     returns a vector where each element is a pair (is_tag, text)
     """
     offset = 0
-    for m in _annotation.finditer(annotated):
+    for m in config._annotation.finditer(annotated):
         if offset < m.start():
             yield [False, annotated[offset:m.start()]]
         offset = m.end()
@@ -938,7 +874,7 @@ def annotated_string_to_xml_skeleton(annotated):
 
 
 def remove_xml_annotations(annotated):
-    xml_tags = {'<' + src_ann + '>', '</' + len_ann + '>', '</' + grp_ann + '>'}
+    xml_tags = {'<' + config.src_ann + '>', '</' + config.len_ann + '>', '</' + config.grp_ann + '>'}
     skeleton = list(annotated_string_to_xml_skeleton(annotated))
     tokens = []
     for i, is_tag, text in enumerate(skeleton):

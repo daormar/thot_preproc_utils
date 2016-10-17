@@ -4,12 +4,12 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import abc
-from collections import defaultdict, Counter
+from collections import Counter
 
 import sqlite3
 
 from nltk import ngrams
-from thot_utils.libs.thot_preproc import lowercase, _global_eos_str, _global_bos_str
+from thot_utils.libs import config
 
 
 class LanguageModelProviderInterface(object):
@@ -43,8 +43,8 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
         # obtain counts for higher order n-grams
         for i in range(1, self.ngrams_length + 1):
             self.main_counter.update(
-                ngrams(word_array, i, pad_left=True, pad_right=True, left_pad_symbol=_global_bos_str,
-                       right_pad_symbol=_global_eos_str)
+                ngrams(word_array, i, pad_left=True, pad_right=True, left_pad_symbol=config.bos_str,
+                       right_pad_symbol=config.eos_str)
             )
 
     def get_count(self, word):

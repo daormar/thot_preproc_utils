@@ -9,9 +9,9 @@ import sys
 
 import io
 from thot_utils.libs import thot_preproc
+from thot_utils.libs.detokenize.language_model_file_provider import LanguageModelDBProvider
+from thot_utils.libs.detokenize.translation_model_provider import TranslationModelDBProvider
 from thot_utils.libs.file_input import FileInput
-from thot_utils.libs.language_model_file_provider import LanguageModelDBProvider
-from thot_utils.libs.translation_model_file_provider import TranslationModelDBPrivider
 
 argparser = argparse.ArgumentParser(description=__doc__)
 
@@ -42,7 +42,7 @@ mutex_group.add_argument(
 def main():
     cli_args = argparser.parse_args()
 
-    db_translation_model_provider = TranslationModelDBPrivider(cli_args.sqlite)
+    db_translation_model_provider = TranslationModelDBProvider(cli_args.sqlite)
 
     tmodel = thot_preproc.TransModel(
         model_provider=db_translation_model_provider
@@ -50,19 +50,16 @@ def main():
     db_language_model_provider = LanguageModelDBProvider(cli_args.sqlite)
     lmodel = thot_preproc.LangModel(db_language_model_provider, ngrams_length=2)
 
-    weights = [0, 0, 0, 1]
+    weights = [1, 0, 0, 1]
     decoder = thot_preproc.Decoder(tmodel, lmodel, weights)
 
-    print >> sys.stderr, "Recasing..."
     if cli_args.stdin:
         fd = codecs.getreader('utf-8')(sys.stdin)
     else:
         fd = io.open(cli_args.file, 'r', encoding='utf-8')
 
     with FileInput(fd) as f:
-        for line in f:
-            decoder.recase([line], False)
-
+        decoder.detokenize(f)
 
 if __name__ == "__main__":
     main()

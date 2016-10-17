@@ -43,6 +43,8 @@ metadata = dict(
             'thot_recase = thot_utils.bin.thot_recase:main',
             'thot_recase_precalculate = thot_utils.bin.thot_recase_precalculate:main',
             'thot_tokenize = thot_utils.bin.thot_tokenize:main',
+            'thot_detokenize = thot_utils.bin.thot_detokenize:main',
+            'thot_detokenize_precalculate = thot_utils.bin.thot_detokenize_precalculate:main',
         ],
     },
     classifiers=[
