@@ -7,6 +7,6 @@ from .language_model_provider import LanguageModelDBProvider, LanguageModelFileP
 from .translation_model_provider import TranslationModelDBProvider, TranslationModelFileProvider
 
 __all__ = [
-    'LanguageModelFileProvider', 'LanguageModelDBProvider',
+    'LanguageModelDBProvider', 'LanguageModelFileProvider',
     'TranslationModelDBProvider', 'TranslationModelFileProvider'
 ]

@@ -784,13 +784,13 @@ class Decoder:
 
                 # Print recased sentence
                 if len(nblist) == 0:
-                    print line.encode("utf-8")
                     print >> sys.stderr, "Warning: no recased sentences were found for sentence in line", lineno
+                    return line
                 else:
                     best_hyp = nblist[0]
-                    print best_hyp.data.words.encode("utf-8")
+                    return best_hyp.data.words
             else:
-                print ""
+                return ""
 
 
 class Tokenizer:
