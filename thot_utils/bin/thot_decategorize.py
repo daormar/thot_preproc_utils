@@ -41,15 +41,18 @@ def main():
     tfile = io.open(cli_args.target_file, 'r', encoding='utf-8')
     ifile = io.open(cli_args.hypothesis_file, 'r', encoding='utf-8')
 
-    for sline, tline, iline in itertools.izip(sfile, tfile, ifile):
+    for sline, tline, iline in zip(sfile, tfile, ifile):
         # Read source, target and hypothesis information
         sline = sline.strip('\n')
         tline = tline.strip('\n')
         iline = iline.strip('\n')
 
         decategorized_line = thot_preproc.decategorize(sline, tline, iline)
-        print decategorized_line.encode('utf-8')
+        print(decategorized_line.encode('utf-8'))
 
 
 if __name__ == '__main__':
     main()
+
+import nltk
+nltk.word_tokenize('aa aa')

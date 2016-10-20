@@ -52,7 +52,7 @@ def main():
     weights = [0, 0, 0, 1]
     decoder = thot_preproc.Decoder(tmodel, lmodel, weights)
 
-    print >> sys.stderr, "Recasing..."
+    print("Recasing...", file=sys.stderr)
     if cli_args.stdin:
         fd = codecs.getreader('utf-8')(sys.stdin)
     else:
@@ -60,8 +60,8 @@ def main():
 
     with FileInput(fd) as f:
         for line in f:
-            line = decoder.recase([line], False)
-            print line.encode("utf-8")
+            line = decoder.recase(line, False)
+            print(line.encode("utf-8"))
 
 
 if __name__ == "__main__":

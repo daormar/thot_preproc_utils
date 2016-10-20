@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+from __future__ import print_function
 
 import math
 import re
@@ -10,7 +11,7 @@ import sys
 from heapq import heappop, heappush
 
 from thot_utils.libs import config
-from thot_utils.libs.utils import is_alnum, transform_word, is_categ
+from thot_utils.libs.utils import is_alnum, transform_word, is_categ, split_string_to_words
 from thot_utils.libs.utils import is_number
 
 
@@ -243,12 +244,12 @@ def categorize(sentence):
 
 
 def categorize_word(word):
-    if word.isdigit() == True:
+    if word.isdigit():
         if len(word) > 1:
             return config.number_str
         else:
             return config.digit_str
-    elif is_number(word) == True:
+    elif is_number(word):
         return config.number_str
     elif is_alnum(word) == True and bool(config.digits.search(word)) == True:
         return config.alfanum_str
@@ -267,7 +268,7 @@ def extract_alig_info(hyp_word_array):
         if hyp_word_array[i] == "hypkey:" and hyp_word_array[i - 1] == "|":
             info_found = True
             i -= 2
-            break;
+            break
 
     if info_found:
         # Obtain target segment cuts
@@ -404,10 +405,10 @@ class Decoder:
         if len(self.weights) != 4:
             self.weights = [1, 1, 1, 1]
         else:
-            print >> sys.stderr, "Decoder weights:",
+            print("Decoder weights:", file=sys.stderr)
             for i in range(len(weights)):
-                print >> sys.stderr, weights[i],
-            print >> sys.stderr, ""
+                print(weights[i], file=sys.stderr)
+            print("", file=sys.stderr)
 
         # Set indices for weight list
         self.tmw_idx = 0
@@ -431,18 +432,18 @@ class Decoder:
 
         lp = math.log(self.tmodel.obtain_trgsrc_prob_smoothed(new_src_words, opt))
 
-        if verbose == True:
-            print >> sys.stderr, "  tm: logprob(", opt.encode("utf-8"), "|", new_src_words.encode("utf-8"), ")=", lp
+        if verbose:
+            print(
+                "  tm: logprob(", opt.encode("utf-8"), "|", new_src_words.encode("utf-8"), ")=", lp,
+                file=sys.stderr
+            )
 
         return lp
 
     def pp_ext_lp(self, verbose):
-
         lp = math.log(1.0 / math.e)
-
-        if verbose == True:
-            print >> sys.stderr, "  pp:", lp
-
+        if verbose:
+            print("  pp:", lp, file=sys.stderr)
         return lp
 
     def wp_ext_lp(self, words, verbose):
@@ -451,8 +452,8 @@ class Decoder:
 
         lp = nw * math.log(1 / math.e)
 
-        if verbose == True:
-            print >> sys.stderr, "  wp:", lp
+        if verbose:
+            print("  wp:", lp, file=sys.stderr)
 
         return lp
 
@@ -468,7 +469,7 @@ class Decoder:
             return word
 
     def lm_ext_lp(self, hyp_words, opt, verbose):
-        ## Obtain lm history
+        # Obtain lm history
         rawhist = self.lmodel.get_lm_state(hyp_words)
         rawhist_array = rawhist.split()
         hist = ""
@@ -489,9 +490,9 @@ class Decoder:
             else:
                 ngram = hist + " " + word
             lp_ng = math.log(self.lmodel.obtain_trgsrc_interp_prob(ngram))
-            lp = lp + lp_ng
-            if verbose == True:
-                print >> sys.stderr, "  lm: logprob(", word.encode("utf-8"), "|", hist.encode("utf-8"), ")=", lp_ng
+            lp += lp_ng
+            if verbose:
+                print("  lm: logprob(", word.encode("utf-8"), "|", hist.encode("utf-8"), ")=", lp_ng, file=sys.stderr)
 
             hist = self.lmodel.remove_oldest_word(ngram)
 
@@ -519,15 +520,17 @@ class Decoder:
             opt_list.append(new_src_words)
 
         # Print information about expansion if in verbose mode
-        if verbose == True:
-            print >> sys.stderr, "++ expanding -> new_hyp_cov:", new_hyp_cov, "; new_src_words:", new_src_words.encode(
-                "utf-8"), "; num options:", len(opt_list)
+        if verbose:
+            print(
+                "++ expanding -> new_hyp_cov:", new_hyp_cov, "; new_src_words:", new_src_words.encode("utf-8"),
+                "; num options:", len(opt_list), file=sys.stderr
+            )
 
         # Iterate over options
         for opt in opt_list:
 
-            if verbose == True:
-                print >> sys.stderr, "   option:", opt.encode("utf-8")
+            if verbose:
+                print("   option:", opt.encode("utf-8"), file=sys.stderr)
 
             # Extend hypothesis
 
@@ -570,13 +573,13 @@ class Decoder:
                 lm_end_lp = self.lm_ext_lp(bfsd_newhyp.words, config.eos_str, verbose)
                 w_lm_end_lp = self.weights[self.lmw_idx] * lm_end_lp
 
-            if verbose == True:
-                print >> sys.stderr, "   expansion ->", "w. lp:", hyp.score + w_tm_lp + w_pp_lp + w_lm_lp + \
-                                                                  w_lm_end_lp, "; w. tm logprob:", w_tm_lp, \
-                    "; w. pp logprob:", w_pp_lp, "; w. wp logprob:", w_wp_lp, "; w. lm logprob:", w_lm_lp, \
-                    "; w. lm end logprob:", w_lm_end_lp, ";", str(
-                    bfsd_newhyp)
-                print >> sys.stderr, "   ----"
+            if verbose:
+                print(
+                    "   expansion ->", "w. lp:", hyp.score + w_tm_lp + w_pp_lp + w_lm_lp + w_lm_end_lp,
+                    "; w. tm logprob:", w_tm_lp,
+                    "; w. pp logprob:", w_pp_lp, "; w. wp logprob:", w_wp_lp, "; w. lm logprob:", w_lm_lp,
+                    "; w. lm end logprob:", w_lm_end_lp, ";", str(bfsd_newhyp), file=sys.stderr)
+                print("   ----", file=sys.stderr)
 
             # Obtain new hypothesis
             newhyp = Hypothesis()
@@ -620,7 +623,7 @@ class Decoder:
 
         # Obtain n-best hypotheses
         nblist = []
-        for i in xrange(nblsize):
+        for i in range(nblsize):
             hyp = self.best_first_search(src_word_array, priority_queue, stdict, verbose)
 
             # Append hypothesis to nblist
@@ -663,12 +666,12 @@ class Decoder:
     def get_hypothesis_to_expand(self, priority_queue, stdict):
 
         while True:
-            if priority_queue.empty() == True:
+            if priority_queue.empty():
                 return True, Hypothesis()
             else:
                 hyp = priority_queue.get()
                 sti = obtain_state_info(self.tmodel, self.lmodel, hyp)
-                if stdict.hyp_recombined(sti, hyp.score) == False:
+                if not stdict.hyp_recombined(sti, hyp.score):
                     return False, hyp
 
     def best_first_search(self, src_word_array, priority_queue, stdict, verbose):
@@ -676,8 +679,8 @@ class Decoder:
         end = False
         niter = 0
 
-        if verbose == True:
-            print >> sys.stderr, "*** Starting best first search..."
+        if verbose:
+            print("*** Starting best first search...", file=sys.stderr)
 
         # Start best-first search
         while not end:
@@ -688,10 +691,10 @@ class Decoder:
                 end = True
             else:
                 # Expand hypothesis
-                if verbose == True:
-                    print >> sys.stderr, "** niter:", niter, " ; lp:", hyp.score, ";", str(hyp.data)
+                if verbose:
+                    print("** niter:", niter, " ; lp:", hyp.score, ";", str(hyp.data), file=sys.stderr)
                 # Stop if the hypothesis is complete
-                if self.hyp_is_complete(hyp, src_word_array) == True:
+                if self.hyp_is_complete(hyp, src_word_array):
                     end = True
                 else:
                     # Expand hypothesis
@@ -708,89 +711,77 @@ class Decoder:
                                 sti = obtain_state_info(self.tmodel, self.lmodel, exp_list[k])
                                 stdict.insert(sti, exp_list[k].score)
 
-            niter = niter + 1
+            niter += 1
 
             if niter > config.maxniters:
                 end = True
 
         # Return result
         if niter > config.maxniters:
-            if verbose == True:
-                print  >> sys.stderr, "Warning: maximum number of iterations exceeded"
+            if verbose:
+                print("Warning: maximum number of iterations exceeded", file=sys.stderr)
             return Hypothesis()
         else:
-            if self.hyp_is_complete(hyp, src_word_array) == True:
-                if verbose == True:
-                    print >> sys.stderr, "*** Best first search finished successfully after", niter, "iterations, " \
-                                                                                                     "hyp. score:", \
-                        hyp.score
+            if self.hyp_is_complete(hyp, src_word_array):
+                if verbose:
+                    print(
+                        "*** Best first search finished successfully after",
+                        niter, "iterations, hyp. score:", hyp.score, file=sys.stderr
+                    )
                 hyp.score = hyp.score
                 return hyp
             else:
-                if verbose == True:
-                    print >> sys.stderr, "Warning: priority queue empty, search was unable to reach a complete " \
-                                         "hypothesis"
+                if verbose:
+                    print(
+                        "Warning: priority queue empty, search was unable to reach a complete hypothesis",
+                        file=sys.stderr
+                    )
                 return Hypothesis()
 
-    def detokenize(self, lines, verbose=False):
-        # read raw file line by line
-        lineno = 0
-        for line in lines:
-            # Obtain array with tokenized words
-            lineno = lineno + 1
-            line = line.strip("\n")
-            tok_array = line.split()
-            nblsize = 1
-            if verbose == True:
-                print >> sys.stderr, ""
-                print >> sys.stderr, "**** Processing sentence: ", line.encode("utf-8")
+    def detokenize(self, line, verbose=False):
+        # Obtain array with tokenized words
+        tok_array = split_string_to_words(line)
+        nblsize = 1
+        if verbose:
+            print("**** Processing sentence: ", line.encode("utf-8"), file=sys.stderr)
 
-            if len(tok_array) > 0:
-                # Transform array of tokenized words
-                trans_tok_array = []
-                for i in range(len(tok_array)):
-                    trans_tok_array.append(transform_word(tok_array[i]))
+        if len(tok_array) > 0:
+            # Transform array of tokenized words
+            trans_tok_array = []
+            for i in range(len(tok_array)):
+                trans_tok_array.append(transform_word(tok_array[i]))
 
-                # Obtain n-best list of detokenized sentences
-                nblist = self.obtain_nblist(trans_tok_array, nblsize, verbose)
+            # Obtain n-best list of detokenized sentences
+            nblist = self.obtain_nblist(trans_tok_array, nblsize, verbose)
 
-                # Print detokenized sentence
-                if len(nblist) == 0:
-                    print line.encode("utf-8")
-                    print >> sys.stderr, "Warning: no detokenizations were found for sentence in line", lineno
-                else:
-                    best_hyp = nblist[0]
-                    detok_sent = self.obtain_detok_sent(tok_array, best_hyp)
-                    print detok_sent.encode("utf-8")
+            # Print detokenized sentence
+            if len(nblist) == 0:
+                print("Warning: no detokenizations were found for sentence in line", lineno, file=sys.stderr)
+                return line
             else:
-                print ""
+                best_hyp = nblist[0]
+                detok_sent = self.obtain_detok_sent(tok_array, best_hyp)
+                return detok_sent
 
-    def recase(self, file, verbose):
-        # read raw file line by line
-        lineno = 0
-        for line in file:
-            # Obtain array with tokenized words
-            lineno = lineno + 1
-            line = line.strip("\n")
-            lc_word_array = line.split()
-            nblsize = 1
-            if verbose == True:
-                print >> sys.stderr, ""
-                print >> sys.stderr, "**** Processing sentence: ", line.encode("utf-8")
+        return ""
 
-            if len(lc_word_array) > 0:
-                # Obtain n-best list of detokenized sentences
-                nblist = self.obtain_nblist(lc_word_array, nblsize, verbose)
+    def recase(self, line, verbose):
+        lc_word_array = split_string_to_words(line)
+        nblsize = 1
+        if verbose:
+            print("**** Processing sentence: ", line.encode("utf-8"), file=sys.stderr)
+        if len(lc_word_array) > 0:
+            # Obtain n-best list of detokenized sentences
+            nblist = self.obtain_nblist(lc_word_array, nblsize, verbose)
 
-                # Print recased sentence
-                if len(nblist) == 0:
-                    print >> sys.stderr, "Warning: no recased sentences were found for sentence in line", lineno
-                    return line
-                else:
-                    best_hyp = nblist[0]
-                    return best_hyp.data.words
+            # Print recased sentence
+            if len(nblist) == 0:
+                print("Warning: no recased sentences were found for sentence:", line, file=sys.stderr)
+                return line
             else:
-                return ""
+                best_hyp = nblist[0]
+                return best_hyp.data.words
+        return ""
 
 
 class Tokenizer:
@@ -798,8 +789,8 @@ class Tokenizer:
         self.RX = re.compile(r'(\w+)|([^\w\s]+)', re.U)
 
     def tokenize(self, s):
-        aux = filter(None, self.RX.split(s))
-        return filter(None, [s.strip() for s in aux])
+        aux = [s.strip() for s in self.RX.split(s)]
+        return [s for s in aux if s]
 
 
 def tokenize(string):
@@ -852,8 +843,8 @@ def annotated_string_to_xml_skeleton(annotated):
             yield [False, annotated[offset:m.start()]]
         offset = m.end()
         g = m.groups()
-        dic_g = filter(None, g[0:8])
-        len_g = filter(None, g[8:11])
+        dic_g = [x for x in g[0:8] if x]
+        len_g = [x for x in g[8:11] if x]
         if dic_g:
             yield [True, dic_g[0]]
             yield [True, dic_g[1]]
@@ -884,7 +875,9 @@ def remove_xml_annotations(annotated):
                 tokens.append(token)
             else:
                 ant_is_tag, ant_text = skeleton[i - 1]
-                if not ant_is_tag or (ant_is_tag and
-                                              ant_text.strip() in xml_tags):
+                if (
+                    not ant_is_tag or
+                    (ant_is_tag and ant_text.strip() in xml_tags)
+                ):
                     tokens.append(token)
     return u' '.join(tokens)

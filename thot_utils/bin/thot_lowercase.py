@@ -39,7 +39,7 @@ def main():
         for line in f:
             line = line.strip("\n")
             line = thot_preproc.lowercase(line)
-            print line.encode("utf-8")
+            print(line.encode("utf-8"))
 
 
 if __name__ == "__main__":

@@ -3,11 +3,15 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import re
 from thot_utils.libs import config
 
 
+split_regex = re.compile('[\u200b\s]+', flags=re.U)
+
+
 def split_string_to_words(s):
-    return s.strip('\n').strip()
+    return [n for n in split_regex.split(s) if n]
 
 
 def transform_word(word):

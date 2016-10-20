@@ -7,7 +7,6 @@ from __future__ import division
 
 import argparse
 import io
-import itertools
 import sys
 
 from thot_utils.libs.math_functions import compute_deviations, compute_mean_stddev_per_length
@@ -71,7 +70,7 @@ def main():
 
     # read parallel files line by line
     pairs_list = []
-    for srcline, trgline in itertools.izip(source_fd, target_fd):
+    for srcline, trgline in zip(source_fd, target_fd):
         src_word_len = len(split_string_to_words(srcline))
         trg_word_len = len(split_string_to_words(trgline))
         # Store sentence lengths
@@ -102,11 +101,11 @@ def main():
 
             # Verify difference in sentence length
             if uplim >= diff >= lolim:
-                print idx
+                print(idx)
             else:
-                print >> sys.stderr, "lineno:", idx, ", slen:", slen, ", tlen:", tlen
+                print("lineno:", idx, ", slen:", slen, ", tlen:", tlen, file=sys.stderr)
         else:
-            print >> sys.stderr, "lineno:", idx, ", slen:", slen, ", tlen:", tlen
+            print("lineno:", idx, ", slen:", slen, ", tlen:", tlen, file=sys.stderr)
 
 
 if __name__ == "__main__":

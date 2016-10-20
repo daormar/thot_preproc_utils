@@ -58,7 +58,8 @@ def main():
         fd = io.open(cli_args.file, 'r', encoding='utf-8')
 
     with FileInput(fd) as f:
-        decoder.detokenize(f)
+        for line in f:
+            print(decoder.detokenize(line).encode('utf-8'))
 
 if __name__ == "__main__":
     main()

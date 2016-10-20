@@ -41,7 +41,7 @@ def main():
             line = line.strip("\n")
             tokens = thot_preproc.tokenize(line)
             tok_sent = u' '.join(tokens)
-            print tok_sent.encode("utf-8")
+            print(tok_sent.encode("utf-8"))
 
 
 if __name__ == "__main__":

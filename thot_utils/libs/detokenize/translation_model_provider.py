@@ -11,7 +11,7 @@ import itertools
 
 import sys
 
-from thot_utils.libs.utils import transform_word, is_categ
+from thot_utils.libs.utils import transform_word, is_categ, split_string_to_words
 
 
 class TranslationModelProviderInterface(object):
@@ -49,11 +49,9 @@ class TranslationModelFileProvider(TranslationModelProviderInterface):
 
     def run(self):
         # Read parallel files line by line
-        for rline, tline in itertools.izip(self.raw_fd, self.tokenized_fd):
-            rline = rline.strip("\n")
-            raw_word_array = rline.split()
-            tline = tline.strip("\n")
-            tok_array = tline.split()
+        for rline, tline in zip(self.raw_fd, self.tokenized_fd):
+            raw_word_array = split_string_to_words(rline)
+            tok_array = split_string_to_words(tline)
             # Process sentence
             retval = self.train_sent_tok(raw_word_array, tok_array)
             if not retval:
@@ -126,12 +124,12 @@ class TranslationModelFileProvider(TranslationModelProviderInterface):
         return self.s_counts[src_words]
 
     def get_all_source_counts(self):
-        for source, count in self.s_counts.iteritems():
+        for source, count in self.s_counts.items():
             yield source, count
 
     def get_all_target_counts(self):
-        for source, targets_counts in self.st_counts.iteritems():
-            for target, count in targets_counts.iteritems():
+        for source, targets_counts in self.st_counts.items():
+            for target, count in targets_counts.items():
                 yield source, target, count
 
 
@@ -165,11 +163,13 @@ class TranslationModelDBProvider(TranslationModelProviderInterface):
         raise NotImplemented()
 
     def load_from_other_provider(self, provider):
+        self.connection.execute('DROP TABLE IF EXISTS detokenize_s_counts')
         self.connection.execute('CREATE TABLE detokenize_s_counts (t text primary key not null, c int not null)')
         for key, value in provider.get_all_source_counts():
             self.cursor.execute('insert into detokenize_s_counts values (?, ?)', [key, value])
         self.connection.commit()
 
+        self.connection.execute('DROP TABLE IF EXISTS detokenize_st_counts')
         self.connection.execute(
             'CREATE TABLE detokenize_st_counts (s text not null, t text not null, c int not null, PRIMARY KEY(s, t))')
         for source, target, count in provider.get_all_target_counts():

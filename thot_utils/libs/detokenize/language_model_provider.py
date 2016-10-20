@@ -8,12 +8,10 @@ from collections import Counter
 
 import sqlite3
 
-import itertools
-
 import sys
 from nltk import ngrams
 from thot_utils.libs import config
-from thot_utils.libs.utils import transform_word, is_categ
+from thot_utils.libs.utils import transform_word, is_categ, split_string_to_words
 
 
 class LanguageModelProviderInterface(object):
@@ -39,14 +37,12 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
     def run(self):
         lmvoc = {}
         # Read parallel files line by line
-        for rline, tline in itertools.izip(self.raw_fd, self.tokenized_fd):
-            rline = rline.strip("\n")
-            raw_word_array = rline.split()
-            tline = tline.strip("\n")
-            tok_array = tline.split()
+        for rline, tline in zip(self.raw_fd, self.tokenized_fd):
+            raw_word_array = split_string_to_words(rline)
+            tok_array = split_string_to_words(tline)
             # Process sentence
             retval = self.train_sent_tok(raw_word_array, tok_array, lmvoc)
-            if retval == False:
+            if not retval:
                 print("Warning: something went wrong while training the language model for sentence", file=sys.stderr)
 
     def train_sent_tok(self, raw_word_array, tok_array, lmvoc):
@@ -116,7 +112,7 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
         return self.main_counter[word]
 
     def get_all_counts(self):
-        for source, count in self.main_counter.iteritems():
+        for source, count in self.main_counter.items():
             yield source, count
 
 
@@ -136,6 +132,7 @@ class LanguageModelDBProvider(LanguageModelProviderInterface):
         raise NotImplemented()
 
     def load_from_other_provider(self, provider):
+        self.connection.execute('DROP TABLE IF EXISTS detokenize_ngram_counts')
         self.connection.execute('CREATE TABLE detokenize_ngram_counts (n text primary key not null, c int not null)')
         for key, value in provider.get_all_counts():
             self.cursor.execute('insert into detokenize_ngram_counts values (?, ?)', [' '.join(key), value])

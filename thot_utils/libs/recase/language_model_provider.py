@@ -10,6 +10,7 @@ import sqlite3
 
 from nltk import ngrams
 from thot_utils.libs import config
+from thot_utils.libs.utils import split_string_to_words
 
 
 class LanguageModelProviderInterface(object):
@@ -33,7 +34,7 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
 
     def run(self):
         for line in self.fd:
-            word_array = line.split()
+            word_array = split_string_to_words(line)
             self.train_word_array(word_array)
 
     def train_word_array(self, word_array):
@@ -51,7 +52,7 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
         return self.main_counter[word]
 
     def get_all_counts(self):
-        for source, count in self.main_counter.iteritems():
+        for source, count in self.main_counter.items():
             yield source, count
 
 

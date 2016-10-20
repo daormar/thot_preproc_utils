@@ -23,6 +23,14 @@ argparser.add_argument(
     required=True,
 )
 
+argparser.add_argument(
+    '-o',
+    '--output',
+    type=str,
+    help='Sqlite file where we will write output.',
+    required=True,
+)
+
 
 ##################################################
 def main():
@@ -33,7 +41,7 @@ def main():
     translation_model_provider = detokenize.TranslationModelFileProvider(
         raw_fd=raw_fd, tokenized_fd=tokenized_fd
     )
-    db_translation_model_provider = detokenize.TranslationModelDBProvider('%s.sqlite' % cli_args.raw)
+    db_translation_model_provider = detokenize.TranslationModelDBProvider(cli_args.output)
     db_translation_model_provider.load_from_other_provider(translation_model_provider)
 
     raw_fd = io.open(cli_args.raw, 'r', encoding='utf-8')
@@ -41,7 +49,7 @@ def main():
     language_model_provider = detokenize.LanguageModelFileProvider(
         raw_fd=raw_fd, tokenized_fd=tokenized_fd, ngrams_length=2
     )
-    db_language_model_provider = detokenize.LanguageModelDBProvider('%s.sqlite' % cli_args.raw)
+    db_language_model_provider = detokenize.LanguageModelDBProvider(cli_args.output)
     db_language_model_provider.load_from_other_provider(language_model_provider)
 
 

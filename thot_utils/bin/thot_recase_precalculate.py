@@ -18,18 +18,26 @@ argparser.add_argument(
     required=True,
 )
 
+argparser.add_argument(
+    '-o',
+    '--output',
+    type=str,
+    help='Sqlite file where we will write output.',
+    required=True,
+)
+
 
 def main():
     cli_args = argparser.parse_args()
 
     fd = io.open(cli_args.raw, 'r', encoding='utf-8')
     translation_model_provider = recase.TranslationModelFileProvider(fd)
-    db_translation_model_provider = recase.TranslationModelDBProvider('%s.sqlite' % cli_args.raw)
+    db_translation_model_provider = recase.TranslationModelDBProvider(cli_args.output)
     db_translation_model_provider.load_from_other_provider(translation_model_provider)
 
     fd = io.open(cli_args.raw, 'r', encoding='utf-8')
     language_model_provider = recase.LanguageModelFileProvider(fd, ngrams_length=2)
-    db_language_model_provider = recase.LanguageModelDBProvider('%s.sqlite' % cli_args.raw)
+    db_language_model_provider = recase.LanguageModelDBProvider(cli_args.output)
     db_language_model_provider.load_from_other_provider(language_model_provider)
 
 

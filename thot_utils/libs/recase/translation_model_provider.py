@@ -8,6 +8,7 @@ from collections import defaultdict
 
 import sqlite3
 from thot_utils.libs.thot_preproc import lowercase
+from thot_utils.libs.utils import split_string_to_words
 
 
 class TranslationModelProviderInterface(object):
@@ -44,9 +45,8 @@ class TranslationModelFileProvider(TranslationModelProviderInterface):
 
     def run(self):
         for line in self.fd:
-            line = line.strip("\n")
-            raw_word_array = line.split()
-            lc_word_array = lowercase(line).split()
+            raw_word_array = split_string_to_words(line)
+            lc_word_array = split_string_to_words(lowercase(line))
             self.train_sent_rec(raw_word_array, lc_word_array)
 
     def train_sent_rec(self, raw_word_array, lc_word_array):
@@ -67,12 +67,12 @@ class TranslationModelFileProvider(TranslationModelProviderInterface):
         return self.s_counts[src_words]
 
     def get_all_source_counts(self):
-        for source, count in self.s_counts.iteritems():
+        for source, count in self.s_counts.items():
             yield source, count
 
     def get_all_target_counts(self):
-        for source, targets_counts in self.st_counts.iteritems():
-            for target, count in targets_counts.iteritems():
+        for source, targets_counts in self.st_counts.items():
+            for target, count in targets_counts.items():
                 yield source, target, count
 
 

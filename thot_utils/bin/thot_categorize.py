@@ -39,4 +39,4 @@ def main():
     with FileInput(fd) as f:
         for line in f:
             categorized_line = thot_preproc.categorize(line)
-            print categorized_line.encode('utf-8')
+            print(categorized_line.encode('utf-8'))
