@@ -155,8 +155,9 @@ class Hypothesis:
         self.score = 0
         self.data = BfsHypdata()
 
-    def __cmp__(self, other):
-        return (other.score > self.score) - (other.score < self.score)
+    def __lt__(self, other):
+        # by default we want to have hypothesis with higher score at the beginning
+        return self.score > other.score
 
 
 class PriorityQueue:
