@@ -156,7 +156,7 @@ class Hypothesis:
         self.data = BfsHypdata()
 
     def __cmp__(self, other):
-        return cmp(other.score, self.score)
+        return (other.score > self.score) - (other.score < self.score)
 
 
 class PriorityQueue:
@@ -218,27 +218,104 @@ def obtain_state_info(tmodel, lmodel, hyp):
     return StateInfo(tmodel.get_mon_hyp_state(hyp), lmodel.get_hyp_state(hyp))
 
 
+def areCategsPaired(categ_src_ann_words_array, categ_trg_ann_words_array):
+    # Initialize dictionaries with number of category ocurrences
+    num_categs_src = {}
+    num_categs_trg = {}
+    for categ in config.categ_set:
+        num_categs_src[categ] = 0
+        num_categs_trg[categ] = 0
+        # Count source categories
+    for i in range(len(categ_src_ann_words_array)):
+        if categ_src_ann_words_array[i] in config.categ_set:
+            num_categs_src[categ_src_ann_words_array[i]] += 1
+    # Count target categories
+    for i in range(len(categ_trg_ann_words_array)):
+        if categ_trg_ann_words_array[i] in config.categ_set:
+            num_categs_trg[categ_trg_ann_words_array[i]] += 1
+    # Verify category ocurrence number equality
+    for categ in num_categs_src:
+        if not num_categs_src[categ] == num_categs_trg[categ]:
+            return False
+
+    return True
+
+
+##################################################
+def categ_src_trg_annotation(src_ann_words, trg_ann_words):
+    # Obtain array with source words (with a without categorization)
+    src_ann_words_array = src_ann_words.split()
+    categ_src_ann_words_array = []
+    for i in range(len(src_ann_words_array)):
+        categ_src_ann_words_array.append(categorize_word(src_ann_words_array[i]))
+
+    # Obtain array with target words (with a without categorization)
+    trg_ann_words_array = trg_ann_words.split()
+    categ_trg_ann_words_array = []
+    for i in range(len(trg_ann_words_array)):
+        categ_trg_ann_words_array.append(categorize_word(trg_ann_words_array[i]))
+
+    # Verify that categories are paired
+    if areCategsPaired(categ_src_ann_words_array, categ_trg_ann_words_array):
+        return categ_src_ann_words_array, categ_trg_ann_words_array
+    else:
+        return src_ann_words_array, trg_ann_words_array
+
+
+##################################################
 def categorize(sentence):
-    skeleton = annotated_string_to_xml_skeleton(sentence)
+    skeleton = list(annotated_string_to_xml_skeleton(sentence))
+
     # Categorize words
     categ_word_array = []
-    len_ann_active = False
-    for is_tag, word in skeleton:
+    curr_xml_tag = None
+    for i in range(len(skeleton)):
+        is_tag, word = skeleton[i]
         if is_tag:
             # Treat xml tag
-            categ_word_array.append(word)
             if word == '<' + config.len_ann + '>':
-                len_ann_active = True
+                categ_word_array.append(word)
+                curr_xml_tag = "len_ann"
+            elif word == '<' + config.grp_ann + '>':
+                categ_word_array.append(word)
+            elif word == '<' + config.src_ann + '>':
+                curr_xml_tag = "src_ann"
+            elif word == '<' + config.trg_ann + '>':
+                curr_xml_tag = "trg_ann"
             elif word == '</' + config.len_ann + '>':
-                len_ann_active = False
+                categ_word_array.append(word)
+                curr_xml_tag = None
+            elif word == '</' + config.grp_ann + '>':
+                categ_word_array.append(word)
+            elif word == '</' + config.src_ann + '>':
+                curr_xml_tag = None
+            elif word == '</' + config.trg_ann + '>':
+                curr_xml_tag = None
+                categ_src_words, categ_trg_words = categ_src_trg_annotation(src_ann_words, trg_ann_words)
+                # Add source phrase
+                categ_word_array.append('<' + config.src_ann + '>')
+                for i in range(len(categ_src_words)):
+                    categ_word_array.append(categ_src_words[i])
+                categ_word_array.append('</' + config.src_ann + '>')
+                # Add target phrase
+                categ_word_array.append('<' + config.trg_ann + '>')
+                for i in range(len(categ_trg_words)):
+                    categ_word_array.append(categ_trg_words[i])
+                categ_word_array.append('</' + config.trg_ann + '>')
         else:
             # Categorize group of words
-            word_array = word.split()
-            for inner_word in word_array:
-                if not len_ann_active:
-                    categ_word_array.append(categorize_word(inner_word))
-                else:
+            if curr_xml_tag is None:
+                word_array = word.split()
+                for j in range(len(word_array)):
+                    categ_word_array.append(categorize_word(word_array[j]))
+            elif curr_xml_tag == "len_ann":
+                word_array = word.split()
+                for j in range(len(word_array)):
                     categ_word_array.append(word)
+            elif curr_xml_tag == "src_ann":
+                src_ann_words = word
+            elif curr_xml_tag == "trg_ann":
+                trg_ann_words = word
 
     return u' '.join(categ_word_array)
 
@@ -342,7 +419,7 @@ def decategorize(sline, tline, iline):
 def decategorize_word(trgpos, src_word_array, trg_word_array, srcsegms, trgcuts):
     # Check if there is alignment information available
     if len(srcsegms) == 0 or len(trgcuts) == 0:
-        return trg_word_array[i]
+        return trg_word_array
     else:
         # Scan target cuts
         for k in range(len(trgcuts)):
@@ -756,7 +833,7 @@ class Decoder:
 
             # Print detokenized sentence
             if len(nblist) == 0:
-                print("Warning: no detokenizations were found for sentence in line", lineno, file=sys.stderr)
+                print("Warning: no detokenizations were found for sentence in line", file=sys.stderr)
                 return line
             else:
                 best_hyp = nblist[0]
@@ -786,11 +863,19 @@ class Decoder:
 
 class Tokenizer:
     def __init__(self):
-        self.RX = re.compile(r'(\w+)|([^\w\s]+)', re.U)
+        digits = r'([\d\.,]+)'
+        hiphen_words = r'([^\W\d_]+\-[^\W\d_]+)'
+        acronyms_short = r'([^\W\d_]{,3}\.)'
+        acronyms_long = r'([^\W\d_]{,3}\.[^\W\d_]{,3}\.)'
+        alfanum = r'(\w+)'
+        non_alpha = r'([^\W\d_]+)'
+        self.RX = re.compile(r'%s|%s|%s|%s|%s|%s' % (digits, hiphen_words,
+                                                     acronyms_long, acronyms_short,
+                                                     alfanum, non_alpha), re.U)
 
     def tokenize(self, s):
-        aux = [s.strip() for s in self.RX.split(s)]
-        return [s for s in aux if s]
+        aux = filter(None, self.RX.split(s))
+        return filter(None, [s.strip() for s in aux])
 
 
 def tokenize(string):
