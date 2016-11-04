@@ -9,8 +9,8 @@ import codecs
 import io
 import sys
 
-from thot_utils.libs.file_input import FileInput
 from thot_utils.libs import thot_preproc
+from thot_utils.libs.file_input import FileInput
 
 argparser = argparse.ArgumentParser(description=__doc__)
 mutex_group = argparser.add_mutually_exclusive_group(required=True)

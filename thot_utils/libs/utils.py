@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import re
-from thot_utils.libs import config
 
+from thot_utils.libs import config
 
 split_regex = re.compile('[\u200b\s]+', flags=re.U)
 

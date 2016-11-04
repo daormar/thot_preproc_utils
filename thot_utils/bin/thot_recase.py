@@ -8,9 +8,9 @@ import codecs
 import io
 import sys
 
+from thot_utils.libs import recase
 from thot_utils.libs import thot_preproc
 from thot_utils.libs.file_input import FileInput
-from thot_utils.libs import recase
 
 argparser = argparse.ArgumentParser(description=__doc__)
 

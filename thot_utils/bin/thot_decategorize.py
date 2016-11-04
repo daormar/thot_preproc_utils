@@ -7,6 +7,8 @@ import argparse
 import io
 import itertools
 
+import nltk
+
 from thot_utils.libs import thot_preproc
 
 argparser = argparse.ArgumentParser(description=__doc__)
@@ -54,5 +56,4 @@ def main():
 if __name__ == '__main__':
     main()
 
-import nltk
 nltk.word_tokenize('aa aa')

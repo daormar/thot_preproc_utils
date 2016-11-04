@@ -9,7 +9,8 @@ import argparse
 import io
 import sys
 
-from thot_utils.libs.math_functions import compute_deviations, compute_mean_stddev_per_length
+from thot_utils.libs.math_functions import compute_deviations
+from thot_utils.libs.math_functions import compute_mean_stddev_per_length
 from thot_utils.libs.utils import split_string_to_words
 
 argparser = argparse.ArgumentParser(description=__doc__)
@@ -86,8 +87,8 @@ def main():
     for idx, slen, tlen, diff in enumerate(pairs_list, start=1):
         # Verify minimum and maximum length
         if (
-                            cli_args.min_length <= slen <= cli_args.max_length and
-                            cli_args.min_length <= tlen <= cli_args.max_length
+            cli_args.min_length <= slen <= cli_args.max_length and
+            cli_args.min_length <= tlen <= cli_args.max_length
         ):
             # Obtain difference in sentence length
             diff = slen - tlen

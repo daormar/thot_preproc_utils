@@ -4,11 +4,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import abc
+import sqlite3
 from collections import Counter
 
-import sqlite3
-
 from nltk import ngrams
+
 from thot_utils.libs import config
 from thot_utils.libs.utils import split_string_to_words
 
@@ -76,4 +76,3 @@ class LanguageModelDBProvider(LanguageModelProviderInterface):
         for key, value in provider.get_all_counts():
             self.cursor.execute('insert into ngram_counts values (?, ?)', [' '.join(key), value])
         self.connection.commit()
-

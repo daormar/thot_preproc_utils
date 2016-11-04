@@ -2,17 +2,21 @@
 # -*- coding:utf-8 -*-
 from __future__ import absolute_import
 from __future__ import division
-from __future__ import unicode_literals
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import math
 import re
 import sys
-from heapq import heappop, heappush
+from heapq import heappop
+from heapq import heappush
 
 from thot_utils.libs import config
-from thot_utils.libs.utils import is_alnum, transform_word, is_categ, split_string_to_words
+from thot_utils.libs.utils import is_alnum
+from thot_utils.libs.utils import is_categ
 from thot_utils.libs.utils import is_number
+from thot_utils.libs.utils import split_string_to_words
+from thot_utils.libs.utils import transform_word
 
 
 class TransModel(object):
@@ -84,10 +88,10 @@ class LangModel:
         if len(ng_array) == 0:
             return self.obtain_trgsrc_prob(ngram)
         else:
-            return self.interp_prob * self.obtain_trgsrc_prob(ngram) + (
-                                                                           1 - self.interp_prob) * \
-                                                                       self.obtain_trgsrc_interp_prob(
-                                                                           self.remove_oldest_word(ngram))
+            return (
+                self.interp_prob * self.obtain_trgsrc_prob(ngram) +
+                (1 - self.interp_prob) * self.obtain_trgsrc_interp_prob(self.remove_oldest_word(ngram))
+            )
 
     def remove_newest_word(self, ngram):
         ng_array = ngram.split()
@@ -329,7 +333,7 @@ def categorize_word(word):
             return config.digit_str
     elif is_number(word):
         return config.number_str
-    elif is_alnum(word) == True and bool(config.digits.search(word)) == True:
+    elif is_alnum(word) and config.digits.search(word):
         return config.alfanum_str
     else:
         return word
@@ -612,7 +616,7 @@ class Decoder:
 
             # Extend hypothesis
 
-            ## Obtain new hypothesis
+            # Obtain new hypothesis
             bfsd_newhyp = BfsHypdata()
 
             # Obtain coverage for new hyp
@@ -626,7 +630,7 @@ class Decoder:
                 bfsd_newhyp.words = hyp.data.words
                 bfsd_newhyp.words = bfsd_newhyp.words + " " + opt
 
-            ## Obtain score for new hyp
+            # Obtain score for new hyp
 
             # Add translation model contribution
             tm_lp = self.tm_ext_lp(new_src_words, opt, verbose)
@@ -941,9 +945,9 @@ def annotated_string_to_xml_skeleton(annotated):
             yield [True, dic_g[6]]
             yield [True, dic_g[7]]
         elif len_g:
-            yield [True, dic_g[0]]
-            yield [False, dic_g[1]]
-            yield [True, dic_g[2]]
+            yield [True, len_g[0]]
+            yield [False, len_g[1]]
+            yield [True, len_g[2]]
         else:
             sys.stderr.write('WARNING:\n - s: %s\n - g: %s\n' % (annotated, g))
     if offset < len(annotated):

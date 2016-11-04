@@ -4,14 +4,16 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import abc
+import sqlite3
+import sys
 from collections import Counter
 
-import sqlite3
-
-import sys
 from nltk import ngrams
+
 from thot_utils.libs import config
-from thot_utils.libs.utils import transform_word, is_categ, split_string_to_words
+from thot_utils.libs.utils import is_categ
+from thot_utils.libs.utils import split_string_to_words
+from thot_utils.libs.utils import transform_word
 
 
 class LanguageModelProviderInterface(object):
@@ -60,11 +62,11 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
                 str = ""
 
                 # process current raw word
-                while (end == False):
-                    if (raw_word_array[i] == str):
+                while not end:
+                    if raw_word_array[i] == str:
                         end = True
                     else:
-                        if (j >= len(tok_array)):
+                        if j >= len(tok_array):
                             error = True
                             end = True
                         else:
@@ -72,7 +74,7 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
                             j = j + 1
 
                 # Check that no errors were found while processing current raw word
-                if (error == True):
+                if error:
                     return False
 
                 # update the language model
@@ -137,4 +139,3 @@ class LanguageModelDBProvider(LanguageModelProviderInterface):
         for key, value in provider.get_all_counts():
             self.cursor.execute('insert into detokenize_ngram_counts values (?, ?)', [' '.join(key), value])
         self.connection.commit()
-

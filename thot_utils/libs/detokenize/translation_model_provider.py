@@ -4,14 +4,14 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import abc
+import itertools
 import sqlite3
+import sys
 from collections import defaultdict
 
-import itertools
-
-import sys
-
-from thot_utils.libs.utils import transform_word, is_categ, split_string_to_words
+from thot_utils.libs.utils import is_categ
+from thot_utils.libs.utils import split_string_to_words
+from thot_utils.libs.utils import transform_word
 
 
 class TranslationModelProviderInterface(object):
@@ -67,16 +67,16 @@ class TranslationModelFileProvider(TranslationModelProviderInterface):
             error = False
 
             # Obtain transformed raw word array
-            while (i < len(raw_word_array)):
+            while i < len(raw_word_array):
                 end = False
                 str = ""
 
                 # process current raw word
-                while (end == False):
-                    if (raw_word_array[i] == str):
+                while not end:
+                    if raw_word_array[i] == str:
                         end = True
                     else:
-                        if (j >= len(tok_array)):
+                        if j >= len(tok_array):
                             error = True
                             end = True
                         else:
@@ -84,7 +84,7 @@ class TranslationModelFileProvider(TranslationModelProviderInterface):
                             j = j + 1
 
                 # Check that no errors were found while processing current raw word
-                if (error == True):
+                if error:
                     return False
 
                 # update the translation model
@@ -100,7 +100,7 @@ class TranslationModelFileProvider(TranslationModelProviderInterface):
 
                 raw_words = raw_word
 
-                if (tm_entry_ok == True):
+                if tm_entry_ok:
                     self.increase_count(tok_words, raw_words, 1)
 
                 # update variables
@@ -175,4 +175,3 @@ class TranslationModelDBProvider(TranslationModelProviderInterface):
         for source, target, count in provider.get_all_target_counts():
             self.cursor.execute('insert into detokenize_st_counts values (?, ?, ?)', [source, target, count])
         self.connection.commit()
-

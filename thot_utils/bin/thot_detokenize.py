@@ -5,11 +5,11 @@ Some description
 """
 import argparse
 import codecs
+import io
 import sys
 
-import io
-from thot_utils.libs import thot_preproc
 from thot_utils.libs import detokenize
+from thot_utils.libs import thot_preproc
 from thot_utils.libs.file_input import FileInput
 
 argparser = argparse.ArgumentParser(description=__doc__)

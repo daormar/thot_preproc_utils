@@ -4,9 +4,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import abc
+import sqlite3
 from collections import defaultdict
 
-import sqlite3
 from thot_utils.libs.thot_preproc import lowercase
 from thot_utils.libs.utils import split_string_to_words
 
@@ -116,4 +116,3 @@ class TranslationModelDBProvider(TranslationModelProviderInterface):
         for source, target, count in provider.get_all_target_counts():
             self.cursor.execute('insert into st_counts values (?, ?, ?)', [source, target, count])
         self.connection.commit()
-
