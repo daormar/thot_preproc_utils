@@ -1206,7 +1206,7 @@ def remove_xml_annotations(annotated):
     xml_tags = {'<' + config.src_ann + '>', '</' + config.len_ann + '>', '</' + config.grp_ann + '>'}
     skeleton = list(annotated_string_to_xml_skeleton(annotated))
     tokens = []
-    for i, is_tag, text in enumerate(skeleton):
+    for i, (is_tag, text) in enumerate(skeleton):
         token = text.strip()
         if not is_tag and token:
             if i == 0:
