@@ -1092,14 +1092,14 @@ class Tokenizer:
         passed as atoms 'ab' will be returned.
         """
 
-        atoms = map(re.escape, sorted(atoms, key=len, reverse=True))
+        atoms = list(map(re.escape, sorted(atoms, key=len, reverse=True)))
         word_chars = re.escape(word_chars)
 
         self.re = re.compile("(?:" + "|".join(
             atoms + [
                 "\\b[0-9]+,[0-9]+[a-zA-Z]+\\b",
                 "\\b[0-9]+,[0-9]+\\b",
-                "[%s]+(?:'[sS])?" % (word_chars),
+                "[%s]+(?:'[sS])?" % word_chars,
                 "\s+"
             ]) + ")", flags=re.I)
 
