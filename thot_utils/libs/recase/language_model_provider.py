@@ -49,12 +49,16 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
 
         self.connection.execute('DROP TABLE IF EXISTS ngram_counts')
         self.connection.execute('CREATE TABLE ngram_counts (n TEXT PRIMARY KEY NOT NULL, c INT NOT NULL)')
+        self.connection.execute('PRAGMA synchronous=OFF')
+        self.connection.execute('PRAGMA count_changes=OFF')
         counter = Counter()
         for idx, line in enumerate(self.fd):
             word_array = split_string_to_words(line)
             self.train_word_array(counter, word_array)
-            if idx == 1000000:
+            if idx % 100000 == 0:
+                print(idx)
                 self.update_ngram_counts(counter)
+                self.connection.commit()
                 counter = Counter()
         if counter:
             self.update_ngram_counts(counter)

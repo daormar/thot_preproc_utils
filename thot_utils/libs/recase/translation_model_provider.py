@@ -41,9 +41,11 @@ class TranslationModelFileProvider(object):
             for s, t in zip(raw_word_array, lc_word_array):
                 counter_s_count[s] += 1
                 counter_st_count[s, t] += 1
-            if idx == 100000:
+            if idx % 100000 == 0:
+                print(idx)
                 self.update_s_count(counter_s_count)
                 self.update_st_count(counter_st_count)
+                self.connection.commit()
                 counter_s_count = Counter()
                 counter_st_count = Counter()
 
