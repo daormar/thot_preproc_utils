@@ -30,16 +30,13 @@ argparser.add_argument(
 def main():
     cli_args = argparser.parse_args()
 
-    fd = io.open(cli_args.raw, 'r', encoding='utf-8')
-    translation_model_provider = recase.TranslationModelFileProvider(fd)
-    db_translation_model_provider = recase.TranslationModelDBProvider(cli_args.output)
-    db_translation_model_provider.load_from_other_provider(translation_model_provider)
+    raw_fd = io.open(cli_args.raw, 'r', encoding='utf-8')
+    translation_model_provider = recase.TranslationModelFileProvider(raw_fd=raw_fd)
+    translation_model_provider.generate_sqlite(filename=cli_args.output)
 
-    fd = io.open(cli_args.raw, 'r', encoding='utf-8')
-    language_model_provider = recase.LanguageModelFileProvider(fd, ngrams_length=2)
-    db_language_model_provider = recase.LanguageModelDBProvider(cli_args.output)
-    db_language_model_provider.load_from_other_provider(language_model_provider)
-
+    raw_fd = io.open(cli_args.raw, 'r', encoding='utf-8')
+    language_model_provider = recase.LanguageModelFileProvider(raw_fd, ngrams_length=2)
+    language_model_provider.generate_sqlite(filename=cli_args.output)
 
 if __name__ == "__main__":
     main()

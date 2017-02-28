@@ -26,34 +26,46 @@ class LanguageModelProviderInterface(object):
 
 
 class LanguageModelFileProvider(LanguageModelProviderInterface):
-    def __init__(self, fd, ngrams_length):
-        self.fd = fd
+    def __init__(self, raw_fd, ngrams_length):
+        self.fd = raw_fd
         self.ngrams_length = ngrams_length
-        self.main_counter = Counter()
-        self.run()
 
-    def run(self):
-        for line in self.fd:
-            word_array = split_string_to_words(line)
-            self.train_word_array(word_array)
-
-    def train_word_array(self, word_array):
+    def train_word_array(self, counter, word_array):
         # obtain counts for 0-grams
-        self.main_counter.update({"": len(word_array)})
+        counter[""] += len(word_array)
 
         # obtain counts for higher order n-grams
         for i in range(1, self.ngrams_length + 1):
-            self.main_counter.update(
-                ngrams(word_array, i, pad_left=True, pad_right=True, left_pad_symbol=config.bos_str,
-                       right_pad_symbol=config.eos_str)
+            keys = ngrams(
+                word_array, i, pad_left=True, pad_right=True, left_pad_symbol=config.bos_str,
+                right_pad_symbol=config.eos_str
             )
+            for key in keys:
+                counter[' '.join(key)] += 1
 
-    def get_count(self, word):
-        return self.main_counter[word]
+    def generate_sqlite(self, filename):
+        self.connection = sqlite3.connect(filename)
+        self.cursor = self.connection.cursor()
 
-    def get_all_counts(self):
-        for source, count in self.main_counter.items():
-            yield source, count
+        self.connection.execute('DROP TABLE IF EXISTS ngram_counts')
+        self.connection.execute('CREATE TABLE ngram_counts (n TEXT PRIMARY KEY NOT NULL, c INT NOT NULL)')
+        counter = Counter()
+        for idx, line in enumerate(self.fd):
+            word_array = split_string_to_words(line)
+            self.train_word_array(counter, word_array)
+            if idx == 1000000:
+                self.update_ngram_counts(counter)
+                counter = Counter()
+        if counter:
+            self.update_ngram_counts(counter)
+
+        self.connection.commit()
+
+    def update_ngram_counts(self, counter):
+        items = counter.items()
+        keys = [(i[0], ) for i in items]
+        self.cursor.executemany('insert or ignore into ngram_counts values (?1, 0)', keys)
+        self.cursor.executemany('update ngram_counts set c=c+?2 where n=?1', items)
 
 
 class LanguageModelDBProvider(LanguageModelProviderInterface):
@@ -67,12 +79,3 @@ class LanguageModelDBProvider(LanguageModelProviderInterface):
         if rows:
             return rows[0][0]
         return 0
-
-    def get_all_counts(self):
-        raise NotImplemented()
-
-    def load_from_other_provider(self, provider):
-        self.connection.execute('CREATE TABLE ngram_counts (n text primary key not null, c int not null)')
-        for key, value in provider.get_all_counts():
-            self.cursor.execute('insert into ngram_counts values (?, ?)', [' '.join(key), value])
-        self.connection.commit()
