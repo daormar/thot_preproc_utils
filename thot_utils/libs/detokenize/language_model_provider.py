@@ -33,21 +33,8 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
         self.raw_fd = raw_fd
         self.tokenized_fd = tokenized_fd
         self.ngrams_length = ngrams_length
-        self.main_counter = Counter()
-        self.run()
 
-    def run(self):
-        lmvoc = {}
-        # Read parallel files line by line
-        for rline, tline in zip(self.raw_fd, self.tokenized_fd):
-            raw_word_array = split_string_to_words(rline)
-            tok_array = split_string_to_words(tline)
-            # Process sentence
-            retval = self.train_sent_tok(raw_word_array, tok_array, lmvoc)
-            if not retval:
-                print("Warning: something went wrong while training the language model for sentence", file=sys.stderr)
-
-    def train_sent_tok(self, raw_word_array, tok_array, lmvoc):
+    def train_sent_tok(self, raw_word_array, tok_array):
         if (len(tok_array) > 0):
             # train translation model for sentence
             i = 0
@@ -101,21 +88,39 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
 
     def train_word_array(self, word_array):
         # obtain counts for 0-grams
-        self.main_counter.update({"": len(word_array)})
+        self.update_ngram_counts("", len(word_array))
 
         # obtain counts for higher order n-grams
         for i in range(1, self.ngrams_length + 1):
-            self.main_counter.update(
-                ngrams(word_array, i, pad_left=True, pad_right=True, left_pad_symbol=config.bos_str,
-                       right_pad_symbol=config.eos_str)
-            )
+            keys = ngrams(
+                word_array, i, pad_left=True, pad_right=True, left_pad_symbol=config.bos_str,
+                right_pad_symbol=config.eos_str)
 
-    def get_count(self, word):
-        return self.main_counter[word]
+            for key in keys:
+                self.update_ngram_counts(key)
 
-    def get_all_counts(self):
-        for source, count in self.main_counter.items():
-            yield source, count
+    def generate_sqlite(self, filename):
+        self.connection = sqlite3.connect(filename)
+        self.cursor = self.connection.cursor()
+
+        self.connection.execute('DROP TABLE IF EXISTS detokenize_ngram_counts')
+        self.connection.execute('CREATE TABLE detokenize_ngram_counts (n text primary key not null, c int not null)')
+
+        # Read parallel files line by line
+        for rline, tline in zip(self.raw_fd, self.tokenized_fd):
+            raw_word_array = split_string_to_words(rline)
+            tok_array = split_string_to_words(tline)
+            # Process sentence
+            retval = self.train_sent_tok(raw_word_array, tok_array)
+            if not retval:
+                print("Warning: something went wrong while training the language model for sentence", file=sys.stderr)
+
+        self.connection.commit()
+
+    def update_ngram_counts(self, key, count=1):
+        key = ' '.join(key)
+        self.cursor.execute('insert or ignore into detokenize_ngram_counts values (?, 0)', [key])
+        self.cursor.execute('update detokenize_ngram_counts set c=c+? where n=?', [count, key])
 
 
 class LanguageModelDBProvider(LanguageModelProviderInterface):
@@ -130,12 +135,3 @@ class LanguageModelDBProvider(LanguageModelProviderInterface):
             return rows[0][0]
         return 0
 
-    def get_all_counts(self):
-        raise NotImplemented()
-
-    def load_from_other_provider(self, provider):
-        self.connection.execute('DROP TABLE IF EXISTS detokenize_ngram_counts')
-        self.connection.execute('CREATE TABLE detokenize_ngram_counts (n text primary key not null, c int not null)')
-        for key, value in provider.get_all_counts():
-            self.cursor.execute('insert into detokenize_ngram_counts values (?, ?)', [' '.join(key), value])
-        self.connection.commit()

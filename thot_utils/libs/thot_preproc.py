@@ -386,6 +386,7 @@ def extract_alig_info(hyp_word_array):
 
 
 def extract_categ_words_of_segm(word_array, left, right):
+    print(word_array, left, right)
     # Initialize variables
     categ_words = []
 
@@ -1178,28 +1179,37 @@ def annotated_string_to_xml_skeleton(annotated):
     offset = 0
     for m in config._annotation.finditer(annotated):
         if offset < m.start():
-            yield [False, annotated[offset:m.start()]]
+            return [
+                [False, annotated[offset:m.start()]]
+            ]
+
         offset = m.end()
         g = m.groups()
         dic_g = [x for x in g[0:8] if x]
         len_g = [x for x in g[8:11] if x]
         if dic_g:
-            yield [True, dic_g[0]]
-            yield [True, dic_g[1]]
-            yield [False, dic_g[2]]
-            yield [True, dic_g[3]]
-            yield [True, dic_g[4]]
-            yield [False, dic_g[5]]
-            yield [True, dic_g[6]]
-            yield [True, dic_g[7]]
+            return [
+                [True, dic_g[0]],
+                [True, dic_g[1]],
+                [False, dic_g[2]],
+                [True, dic_g[3]],
+                [True, dic_g[4]],
+                [False, dic_g[5]],
+                [True, dic_g[6]],
+                [True, dic_g[7]],
+            ]
         elif len_g:
-            yield [True, len_g[0]]
-            yield [False, len_g[1]]
-            yield [True, len_g[2]]
+            return [
+                [True, len_g[0]],
+                [False, len_g[1]],
+                [True, len_g[2]],
+            ]
         else:
             sys.stderr.write('WARNING:\n - s: %s\n - g: %s\n' % (annotated, g))
     if offset < len(annotated):
-        yield [False, annotated[offset:]]
+        return [
+            [False, annotated[offset:]]
+        ]
 
 
 def remove_xml_annotations(annotated):

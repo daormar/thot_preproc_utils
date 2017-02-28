@@ -41,16 +41,14 @@ def main():
     translation_model_provider = detokenize.TranslationModelFileProvider(
         raw_fd=raw_fd, tokenized_fd=tokenized_fd
     )
-    db_translation_model_provider = detokenize.TranslationModelDBProvider(cli_args.output)
-    db_translation_model_provider.load_from_other_provider(translation_model_provider)
+    translation_model_provider.generate_sqlite(cli_args.output)
 
     raw_fd = io.open(cli_args.raw, 'r', encoding='utf-8')
     tokenized_fd = io.open(cli_args.tokenized, 'r', encoding='utf-8')
     language_model_provider = detokenize.LanguageModelFileProvider(
         raw_fd=raw_fd, tokenized_fd=tokenized_fd, ngrams_length=2
     )
-    db_language_model_provider = detokenize.LanguageModelDBProvider(cli_args.output)
-    db_language_model_provider.load_from_other_provider(language_model_provider)
+    language_model_provider.generate_sqlite(cli_args.output)
 
 
 if __name__ == "__main__":
