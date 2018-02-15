@@ -340,49 +340,75 @@ def categorize_word(word):
 
 
 def extract_alig_info(hyp_word_array):
+    
+    srcsegms=obtain_source_segments(hyp_word_array)
+    trgcuts=obtain_target_cuts(hyp_word_array)
+    
+    return (srcsegms,trgcuts)
+
+
+def obtain_source_segments(hyp_word_array):
+
     # Initialize output variables
-    srcsegms = []
-    trgcuts = []
+    srcsegms=[]
 
-    # Scan hypothesis information
-    info_found = False
-    for i in range(len(hyp_word_array)):
-        if hyp_word_array[i] == "hypkey:" and hyp_word_array[i - 1] == "|":
-            info_found = True
-            i -= 2
-            break
+    # Obtain source segments
+    info_found=False
+    for i in range(2,len(hyp_word_array)):
+        if(hyp_word_array[i]=="Segmentation:" and hyp_word_array[i-1]=="Source" and hyp_word_array[i-2]=="|"):
+            info_found=True
+            i+=1
+            break;
 
-    if info_found:
-        # Obtain target segment cuts
-        trgcuts_found = False
-        while i > 0:
-            if hyp_word_array[i] != "|":
-                trgcuts.append(int(hyp_word_array[i]))
-                i -= 1
-            else:
-                trgcuts_found = True
-                i -= 1
+    srcsegms_found=False
+    if(info_found):
+        while i<len(hyp_word_array):
+            if(hyp_word_array[i]=="("):
+                if(i+3<len(hyp_word_array)):
+                    srcsegms.append((int(hyp_word_array[i+1]),int(hyp_word_array[i+3])))
+                i+=1
+            elif(hyp_word_array[i]=="|"):
+                srcsegms_found=True
                 break
-        trgcuts.reverse()
+            else:
+                i+=1
+            
+    # Return result
+    if(srcsegms_found):
+        return srcsegms
+    else:
+        return []
 
-        if trgcuts_found:
-            # Obtain source segments
-            srcsegms_found = False
-            while i > 0:
-                if hyp_word_array[i] != "|":
-                    if i > 3:
-                        srcsegms.append((int(hyp_word_array[i - 3]), int(hyp_word_array[i - 1])))
-                    i -= 5
-                else:
-                    srcsegms_found = True
-                    break
-            srcsegms.reverse()
+
+def obtain_target_cuts(hyp_word_array):
+
+    # Initialize output variables
+    trgcuts=[]
+
+    # Obtain target segment cuts
+    info_found=False
+    for i in range(2,len(hyp_word_array)):
+        if(hyp_word_array[i]=="Segmentation:" and hyp_word_array[i-1]=="Target" and hyp_word_array[i-2]=="|"):
+            info_found=True
+            i+=1
+            break;
+
+    trgcuts_found=False
+    if(info_found):
+        while i<len(hyp_word_array):
+            if(hyp_word_array[i]!="|"):
+                trgcuts.append(int(hyp_word_array[i]))
+                i+=1
+            else:
+                trgcuts_found=True
+                i+=1
+                break
 
     # Return result
-    if srcsegms_found:
-        return srcsegms, trgcuts
+    if(trgcuts_found):
+        return trgcuts
     else:
-        return [], []
+        return []
 
 
 def extract_categ_words_of_segm(word_array, left, right):
