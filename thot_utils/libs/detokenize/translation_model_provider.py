@@ -3,11 +3,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import abc
-import itertools
 import sqlite3
 import sys
-from collections import defaultdict
+from collections import Counter
 
 from thot_utils.libs.utils import is_categ
 from thot_utils.libs.utils import split_string_to_words
@@ -19,7 +17,7 @@ class TranslationModelFileProvider(object):
         self.raw_fd = raw_fd
         self.tokenized_fd = tokenized_fd
 
-    def train_sent_tok(self, raw_word_array, tok_array):
+    def train_sent_tok(self, counter_s_counts, counter_st_counts, raw_word_array, tok_array):
         if (len(tok_array) > 0):
             # train translation model for sentence
             i = 0
@@ -46,7 +44,7 @@ class TranslationModelFileProvider(object):
 
                 # Check that no errors were found while processing current raw word
                 if error:
-                    return False
+                    return
 
                 # update the translation model
                 tm_entry_ok = True
@@ -62,14 +60,13 @@ class TranslationModelFileProvider(object):
                 raw_words = raw_word
 
                 if tm_entry_ok:
-                    self.increase_count(tok_words, raw_words)
+                    counter_s_counts[tok_words] += 1
+                    counter_st_counts[tok_words, raw_words] += 1
+
 
                 # update variables
                 i = i + 1
                 prev_j = j
-
-            # The sentence was successfully processed
-            return True
 
     def increase_count(self, src_words, trg_words):
         self.update_st_count(src_words, trg_words)
@@ -79,33 +76,52 @@ class TranslationModelFileProvider(object):
         self.connection = sqlite3.connect(filename)
         self.cursor = self.connection.cursor()
 
+        self.connection.execute('PRAGMA synchronous=OFF')
+        self.connection.execute('PRAGMA cache_size=-2000000')
+
         self.connection.execute('DROP TABLE IF EXISTS detokenize_s_counts')
-        self.connection.execute('CREATE TABLE detokenize_s_counts (t text primary key not null, c int not null)')
+        self.connection.execute('CREATE TABLE detokenize_s_counts (t TEXT PRIMARY KEY NOT NULL, c INT NOT NULL)')
 
         self.connection.execute('DROP TABLE IF EXISTS detokenize_st_counts')
         self.connection.execute(
-            'CREATE TABLE detokenize_st_counts (s text not null, t text not null, c int not null, PRIMARY KEY(s, t))'
+            'CREATE TABLE detokenize_st_counts (s TEXT NOT NULL, t TEXT NOT NULL, c INT NOT NULL, PRIMARY KEY(s, t))'
         )
 
         # Read parallel files line by line
-        for rline, tline in zip(self.raw_fd, self.tokenized_fd):
+        counter_s_counts = Counter()
+        counter_st_counts = Counter()
+        for idx, (rline, tline) in enumerate(zip(self.raw_fd, self.tokenized_fd)):
             raw_word_array = split_string_to_words(rline)
             tok_array = split_string_to_words(tline)
             # Process sentence
-            retval = self.train_sent_tok(raw_word_array, tok_array)
-            if not retval:
-                print(
-                    "Warning: something went wrong while training the translation model for sentence", file=sys.stderr)
+            self.train_sent_tok(counter_s_counts, counter_st_counts, raw_word_array, tok_array)
+
+            if idx % 100000 == 0:
+                print(idx)
+                self.update_s_count(counter_s_counts)
+                self.update_st_count(counter_st_counts)
+                counter_s_counts = Counter()
+                counter_st_counts = Counter()
+
+        if counter_s_counts:
+            self.update_s_count(counter_s_counts)
+
+        if counter_st_counts:
+            self.update_st_count(counter_st_counts)
 
         self.connection.commit()
 
-    def update_s_count(self, key):
-        self.cursor.execute('insert or ignore into detokenize_s_counts values (?, 0)', [key])
-        self.cursor.execute('update detokenize_s_counts set c=c+1 where t=?', [key])
+    def update_s_count(self, counter):
+        items = counter.items()
+        keys = [(k[0],) for k in items]
+        self.cursor.executemany('INSERT OR IGNORE INTO detokenize_s_counts VALUES (?, 0)', keys)
+        self.cursor.executemany('UPDATE detokenize_s_counts SET c=c+?2 WHERE t=?1', items)
 
-    def update_st_count(self, source, target):
-        self.cursor.execute('insert or ignore into detokenize_st_counts values (?, ?, 0)', [source, target])
-        self.cursor.execute('update detokenize_st_counts set c=c+1 where s=? and t=?', [source, target])
+    def update_st_count(self, counter):
+        items = counter.items()
+        items = [(s, t, c) for (s, t), c in items]
+        self.cursor.executemany('INSERT OR IGNORE INTO detokenize_st_counts VALUES (?, ?, 0)', counter.keys())
+        self.cursor.executemany('UPDATE detokenize_st_counts SET c=c+?3 WHERE s=?1 AND t=?2', items)
 
 
 class TranslationModelDBProvider(object):
@@ -114,18 +130,18 @@ class TranslationModelDBProvider(object):
         self.cursor = self.connection.cursor()
 
     def get_targets(self, src_word):
-        self.cursor.execute('select t from detokenize_st_counts where s=?', [src_word])
+        self.cursor.execute('SELECT t FROM detokenize_st_counts WHERE s=?', [src_word])
         return [t for t, in self.cursor.fetchall()]
 
     def get_target_count(self, src_words, trg_words):
-        self.cursor.execute('select c from detokenize_st_counts where s=? and t=? limit 1', [src_words, trg_words])
+        self.cursor.execute('SELECT c FROM detokenize_st_counts WHERE s=? AND t=? LIMIT 1', [src_words, trg_words])
         rows = self.cursor.fetchall()
         if rows:
             return rows[0][0]
         return 0
 
     def get_source_count(self, src_words):
-        self.cursor.execute('select c from detokenize_s_counts where t=? limit 1', [src_words])
+        self.cursor.execute('SELECT c FROM detokenize_s_counts WHERE t=? LIMIT 1', [src_words])
         rows = self.cursor.fetchall()
         if rows:
             return rows[0][0]

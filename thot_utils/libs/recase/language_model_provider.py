@@ -46,11 +46,11 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
     def generate_sqlite(self, filename):
         self.connection = sqlite3.connect(filename)
         self.cursor = self.connection.cursor()
+        self.connection.execute('PRAGMA synchronous=OFF')
+        self.connection.execute('PRAGMA cache_size=-2000000')
 
         self.connection.execute('DROP TABLE IF EXISTS ngram_counts')
         self.connection.execute('CREATE TABLE ngram_counts (n TEXT PRIMARY KEY NOT NULL, c INT NOT NULL)')
-        self.connection.execute('PRAGMA synchronous=OFF')
-        self.connection.execute('PRAGMA count_changes=OFF')
         counter = Counter()
         for idx, line in enumerate(self.fd):
             word_array = split_string_to_words(line)
@@ -58,7 +58,7 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
             if idx % 100000 == 0:
                 print(idx)
                 self.update_ngram_counts(counter)
-                self.connection.commit()
+                # self.connection.commit()
                 counter = Counter()
         if counter:
             self.update_ngram_counts(counter)

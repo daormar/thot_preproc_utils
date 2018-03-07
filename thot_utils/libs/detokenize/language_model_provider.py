@@ -34,7 +34,7 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
         self.tokenized_fd = tokenized_fd
         self.ngrams_length = ngrams_length
 
-    def train_sent_tok(self, raw_word_array, tok_array):
+    def train_sent_tok(self, counter, raw_word_array, tok_array):
         if (len(tok_array) > 0):
             # train translation model for sentence
             i = 0
@@ -81,14 +81,14 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
                 i = i + 1
                 prev_j = j
 
-            self.train_word_array(trans_raw_word_array)
+            self.train_word_array(counter, trans_raw_word_array)
 
             # The sentence was successfully processed
             return True
 
-    def train_word_array(self, word_array):
+    def train_word_array(self, counter, word_array):
         # obtain counts for 0-grams
-        self.update_ngram_counts("", len(word_array))
+        counter[""] += len(word_array)
 
         # obtain counts for higher order n-grams
         for i in range(1, self.ngrams_length + 1):
@@ -97,30 +97,39 @@ class LanguageModelFileProvider(LanguageModelProviderInterface):
                 right_pad_symbol=config.eos_str)
 
             for key in keys:
-                self.update_ngram_counts(key)
+                counter[' '.join(key)] += 1
 
     def generate_sqlite(self, filename):
         self.connection = sqlite3.connect(filename)
         self.cursor = self.connection.cursor()
+        self.connection.execute('PRAGMA synchronous=OFF')
+        self.connection.execute('PRAGMA cache_size=-2000000')
 
         self.connection.execute('DROP TABLE IF EXISTS detokenize_ngram_counts')
         self.connection.execute('CREATE TABLE detokenize_ngram_counts (n text primary key not null, c int not null)')
 
         # Read parallel files line by line
-        for rline, tline in zip(self.raw_fd, self.tokenized_fd):
+        counter = Counter()
+        for idx, (rline, tline) in enumerate(zip(self.raw_fd, self.tokenized_fd)):
             raw_word_array = split_string_to_words(rline)
             tok_array = split_string_to_words(tline)
             # Process sentence
-            retval = self.train_sent_tok(raw_word_array, tok_array)
-            if not retval:
-                print("Warning: something went wrong while training the language model for sentence", file=sys.stderr)
+            self.train_sent_tok(counter, raw_word_array, tok_array)
+            if idx % 100000 == 0:
+                print(idx)
+                self.update_ngram_counts(counter)
+                # self.connection.commit()
+                counter = Counter()
+        if counter:
+            self.update_ngram_counts(counter)
 
         self.connection.commit()
 
-    def update_ngram_counts(self, key, count=1):
-        key = ' '.join(key)
-        self.cursor.execute('insert or ignore into detokenize_ngram_counts values (?, 0)', [key])
-        self.cursor.execute('update detokenize_ngram_counts set c=c+? where n=?', [count, key])
+    def update_ngram_counts(self, counter):
+        items = counter.items()
+        keys = [(i[0],) for i in items]
+        self.cursor.executemany('insert or ignore into detokenize_ngram_counts values (?1, 0)', keys)
+        self.cursor.executemany('update detokenize_ngram_counts set c=c+?2 where n=?1', items)
 
 
 class LanguageModelDBProvider(LanguageModelProviderInterface):

@@ -31,19 +31,21 @@ def transform_word(word):
 
 
 def is_number(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        pass
-    return False
+    return s.replace('.', '', 1).isdigit()
+    # try:
+    #     float(s)
+    #     return True
+    # except ValueError:
+    #     pass
+    # return False
 
 
 def is_alnum(s):
-    res = config.alnum.match(s)
-    if res is None:
-        return False
-    return True
+    return s.isalnum()
+    # res = config.alnum.match(s)
+    # if res is None:
+    #     return False
+    # return True
 
 
 def is_categ(word):

@@ -150,7 +150,7 @@ class BfsHypdata:
         result = "cov:"
         for k in range(len(self.coverage)):
             result = result + " " + str(self.coverage[k])
-        result = result + " ; words: " + self.words.encode("utf-8")
+        result = result + " ; words: " + self.words
         return result
 
 

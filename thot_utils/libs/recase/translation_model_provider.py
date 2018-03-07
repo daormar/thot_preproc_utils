@@ -14,38 +14,30 @@ class TranslationModelFileProvider(object):
     def __init__(self, raw_fd):
         self.fd = raw_fd
 
-    def train_sent_rec(self, raw_word_array, lc_word_array):
-        for raw_word, lc_word in zip(raw_word_array, lc_word_array):
-            self.increase_count(lc_word, raw_word)
-
-    def increase_count(self, src_words, trg_words):
-        self.update_st_count(src_words, trg_words)
-        self.update_s_count(src_words)
-
     def generate_sqlite(self, filename):
         self.connection = sqlite3.connect(filename)
         self.cursor = self.connection.cursor()
+        self.connection.execute('PRAGMA synchronous=OFF')
+        self.connection.execute('PRAGMA cache_size=-2000000')
 
         self.connection.execute('DROP TABLE IF EXISTS s_counts')
         self.connection.execute('DROP TABLE IF EXISTS st_counts')
         self.connection.execute('CREATE TABLE s_counts (t TEXT PRIMARY KEY NOT NULL, c INT NOT NULL)')
         self.connection.execute(
             'CREATE TABLE st_counts (s TEXT NOT NULL, t TEXT NOT NULL, c INT NOT NULL, PRIMARY KEY(s, t))')
-        self.connection.execute('PRAGMA synchronous=OFF')
-        self.connection.execute('PRAGMA count_changes=OFF')
         counter_s_count = Counter()
         counter_st_count = Counter()
         for idx, line in enumerate(self.fd):
             raw_word_array = split_string_to_words(line)
             lc_word_array = split_string_to_words(lowercase(line))
-            for s, t in zip(raw_word_array, lc_word_array):
+            for s, t in zip(lc_word_array, raw_word_array):
                 counter_s_count[s] += 1
                 counter_st_count[s, t] += 1
             if idx % 100000 == 0:
                 print(idx)
                 self.update_s_count(counter_s_count)
                 self.update_st_count(counter_st_count)
-                self.connection.commit()
+                # self.connection.commit()
                 counter_s_count = Counter()
                 counter_st_count = Counter()
 
